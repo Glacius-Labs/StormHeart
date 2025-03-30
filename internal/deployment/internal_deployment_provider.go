@@ -14,6 +14,7 @@ func NewInternalDeploymentProvider(deployments []Deployment, push DeploymentPush
 	}
 }
 
-func (p *InternalDeploymentProvider) Start(ctx context.Context) {
+func (p *InternalDeploymentProvider) Start(ctx context.Context) error {
 	p.push(p.deplyoments)
+	return nil
 }
