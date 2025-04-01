@@ -1,4 +1,4 @@
-package deployment
+package runtime
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/glacius-labs/StormHeart/internal/deployment/model"
 )
 
 const (
@@ -32,7 +33,7 @@ func NewDockerRuntime() (*DockerRuntime, error) {
 	return &DockerRuntime{cli: cli}, nil
 }
 
-func (r *DockerRuntime) Deploy(deployment Deployment) error {
+func (r *DockerRuntime) Deploy(deployment model.Deployment) error {
 	ctx := context.Background()
 
 	_ = r.cli.ContainerRemove(ctx, deployment.Name, container.RemoveOptions{Force: true})
@@ -60,12 +61,12 @@ func (r *DockerRuntime) Deploy(deployment Deployment) error {
 	return nil
 }
 
-func (r *DockerRuntime) Remove(name string) error {
+func (r *DockerRuntime) Remove(deployment model.Deployment) error {
 	ctx := context.Background()
-	return r.cli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+	return r.cli.ContainerRemove(ctx, deployment.Name, container.RemoveOptions{Force: true})
 }
 
-func (r *DockerRuntime) ListActiveDeployments() ([]Deployment, error) {
+func (r *DockerRuntime) List() ([]model.Deployment, error) {
 	ctx := context.Background()
 
 	containers, err := r.cli.ContainerList(ctx, container.ListOptions{
@@ -78,7 +79,7 @@ func (r *DockerRuntime) ListActiveDeployments() ([]Deployment, error) {
 		return nil, err
 	}
 
-	var result []Deployment
+	var result []model.Deployment
 
 	for _, container := range containers {
 		name := strings.TrimPrefix(container.Names[0], "/")
@@ -90,7 +91,7 @@ func (r *DockerRuntime) ListActiveDeployments() ([]Deployment, error) {
 
 		env := parseRuntimeEnvironment(inspect.Config.Env)
 
-		result = append(result, Deployment{
+		result = append(result, model.Deployment{
 			Name:        name,
 			Image:       container.Image,
 			Labels:      filterUserLabels(container.Labels),
@@ -101,7 +102,7 @@ func (r *DockerRuntime) ListActiveDeployments() ([]Deployment, error) {
 	return result, nil
 }
 
-func generateRuntimeLabels(deployment Deployment) map[string]string {
+func generateRuntimeLabels(deployment model.Deployment) map[string]string {
 	labels := make(map[string]string)
 
 	maps.Copy(labels, deployment.Labels)

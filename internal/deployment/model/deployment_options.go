@@ -1,4 +1,4 @@
-package deployment
+package model
 
 type DeploymentOptions struct {
 	Labels      map[string]string
