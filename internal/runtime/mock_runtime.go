@@ -3,7 +3,7 @@ package runtime
 import (
 	"slices"
 
-	"github.com/glacius-labs/StormHeart/internal/deployment/model"
+	"github.com/glacius-labs/StormHeart/internal/model"
 )
 
 type MockDeploymentRuntime struct {

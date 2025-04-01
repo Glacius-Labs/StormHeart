@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/glacius-labs/StormHeart/internal/deployment/model"
+	"github.com/glacius-labs/StormHeart/internal/model"
 )
 
 const (

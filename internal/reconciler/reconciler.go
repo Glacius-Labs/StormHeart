@@ -1,7 +1,7 @@
 package reconciler
 
 import (
-	"github.com/glacius-labs/StormHeart/internal/deployment/model"
+	"github.com/glacius-labs/StormHeart/internal/model"
 	"github.com/glacius-labs/StormHeart/internal/runtime"
 )
 

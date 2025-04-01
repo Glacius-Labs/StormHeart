@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/glacius-labs/StormHeart/internal/deployment/model"
+	"github.com/glacius-labs/StormHeart/internal/model"
 )
 
 const InternalDeploymentProviderSourceName = "internal"
