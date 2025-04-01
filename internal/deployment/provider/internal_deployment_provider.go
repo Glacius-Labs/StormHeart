@@ -6,6 +6,8 @@ import (
 	"github.com/glacius-labs/StormHeart/internal/deployment/model"
 )
 
+const InternalDeploymentProviderSourceName = "internal"
+
 type InternalDeploymentProvider struct {
 	deplyoments []model.Deployment
 	pushFunc    PushFunc
@@ -19,6 +21,6 @@ func NewInternalDeploymentProvider(deployments []model.Deployment, pushFunc Push
 }
 
 func (p *InternalDeploymentProvider) Start(ctx context.Context) error {
-	p.pushFunc(p.deplyoments)
+	p.pushFunc(InternalDeploymentProviderSourceName, p.deplyoments)
 	return nil
 }
