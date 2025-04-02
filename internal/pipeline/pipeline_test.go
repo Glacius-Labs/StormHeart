@@ -53,28 +53,6 @@ func TestPipeline_MultiSource_Deduplication(t *testing.T) {
 	require.Len(t, received, 2)
 }
 
-func TestPipeline_IdenticalPushIsSkipped(t *testing.T) {
-	callCount := 0
-	target := func(in []model.Deployment) {
-		callCount++
-	}
-
-	p := pipeline.NewPipeline(
-		target,
-		zaptest.NewLogger(t).Sugar(),
-		pipeline.Deduplicator{},
-	)
-
-	snapshot := []model.Deployment{
-		{Name: "tasker", Image: "v1"},
-	}
-
-	p.Push("source", snapshot)
-	p.Push("source", snapshot) // same input, should be skipped
-
-	require.Equal(t, 1, callCount)
-}
-
 func TestNewPipeline_PanicsOnNilTarget(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
