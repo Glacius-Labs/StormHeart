@@ -1,52 +1,93 @@
 package reconciler
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/glacius-labs/StormHeart/internal/model"
 	"github.com/glacius-labs/StormHeart/internal/runtime"
+	"go.uber.org/zap"
 )
 
 type Reconciler struct {
-	runtime runtime.Runtime
+	Runtime runtime.Runtime
+	Logger  *zap.SugaredLogger
 }
 
-func NewReconciler(runtime runtime.Runtime) *Reconciler {
+func NewReconciler(runtime runtime.Runtime, logger *zap.SugaredLogger) *Reconciler {
+	if runtime == nil {
+		panic("Reconciler requires a non-nil Runtime")
+	}
+	if logger == nil {
+		panic("Reconciler requires a non-nil Logger")
+	}
 	return &Reconciler{
-		runtime: runtime,
+		Runtime: runtime,
+		Logger:  logger,
 	}
 }
 
-func (r *Reconciler) Reconcile(desired []model.Deployment) error {
-	actual, err := r.runtime.List()
-
+func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) error {
+	actual, err := r.Runtime.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list running containers: %w", err)
 	}
 
-	desiredMap := make(map[string]model.Deployment)
+	desiredMap := make(map[string]model.Deployment, len(desired))
 	for _, d := range desired {
 		desiredMap[d.Name] = d
 	}
 
-	actualMap := make(map[string]model.Deployment)
+	actualMap := make(map[string]model.Deployment, len(actual))
 	for _, a := range actual {
 		actualMap[a.Name] = a
 	}
 
+	var toStart, toStop []model.Deployment
+
+	// Determine what to start or restart
 	for name, desiredDeployment := range desiredMap {
 		actualDeployment, exists := actualMap[name]
 		if !exists || !desiredDeployment.Equals(actualDeployment) {
-			if err := r.runtime.Deploy(desiredDeployment); err != nil {
-				return err
-			}
+			toStart = append(toStart, desiredDeployment)
 		}
 	}
 
-	for name := range actualMap {
-		if deployment, exists := desiredMap[name]; !exists {
-			if err := r.runtime.Remove(deployment); err != nil {
-				return err
-			}
+	// Determine what to stop
+	for name, actualDeployment := range actualMap {
+		if _, exists := desiredMap[name]; !exists {
+			toStop = append(toStop, actualDeployment)
 		}
+	}
+
+	var startErrs, stopErrs int
+
+	for _, d := range toStop {
+		if err := r.Runtime.Remove(d); err != nil {
+			stopErrs++
+			r.Logger.Errorw("Failed to stop container", "deployment", d, "error", err)
+		} else {
+			r.Logger.Infow("Stopped container", "deployment", d.Name)
+		}
+	}
+
+	for _, d := range toStart {
+		if err := r.Runtime.Deploy(d); err != nil {
+			startErrs++
+			r.Logger.Errorw("Failed to start container", "deployment", d, "error", err)
+		} else {
+			r.Logger.Infow("Started container", "deployment", d.Name)
+		}
+	}
+
+	r.Logger.Infow("Reconciliation complete",
+		"started", len(toStart),
+		"stopped", len(toStop),
+		"errors", startErrs+stopErrs,
+	)
+
+	if startErrs+stopErrs > 0 {
+		return fmt.Errorf("reconciliation failed: %d start errors, %d stop errors", startErrs, stopErrs)
 	}
 
 	return nil
