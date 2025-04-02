@@ -1,7 +1,7 @@
-package provider
+package watcher
 
 import "context"
 
-type DeploymentProvider interface {
+type Watcher interface {
 	Start(ctx context.Context) error
 }

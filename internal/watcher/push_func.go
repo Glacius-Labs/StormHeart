@@ -1,4 +1,4 @@
-package provider
+package watcher
 
 import "github.com/glacius-labs/StormHeart/internal/model"
 
