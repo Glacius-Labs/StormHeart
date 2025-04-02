@@ -4,23 +4,31 @@ import (
 	"context"
 
 	"github.com/glacius-labs/StormHeart/internal/model"
+	"go.uber.org/zap"
 )
 
 const SourceNameStaticWatcher = "internal"
 
 type StaticWatcher struct {
-	deplyoments []model.Deployment
+	deployments []model.Deployment
 	pushFunc    PushFunc
+	logger      *zap.SugaredLogger
 }
 
-func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc) *StaticWatcher {
+func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger *zap.SugaredLogger) *StaticWatcher {
+	if logger == nil {
+		panic("StaticWatcher requires a non-nil logger")
+	}
+
 	return &StaticWatcher{
-		deplyoments: deployments,
+		deployments: deployments,
 		pushFunc:    pushFunc,
+		logger:      logger,
 	}
 }
 
 func (w *StaticWatcher) Start(ctx context.Context) error {
-	w.pushFunc(SourceNameStaticWatcher, w.deplyoments)
+	w.logger.Infow("Pushing static deployments", "count", len(w.deployments), "source", SourceNameStaticWatcher)
+	w.pushFunc(SourceNameStaticWatcher, w.deployments)
 	return nil
 }
