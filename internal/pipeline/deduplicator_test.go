@@ -17,6 +17,6 @@ func TestDeduplicator_RemovesDuplicates(t *testing.T) {
 		{Name: "db", Image: "postgres"},
 	}
 
-	result := d.Transform(input)
+	result := d.Filter(input)
 	require.Len(t, result, 2)
 }

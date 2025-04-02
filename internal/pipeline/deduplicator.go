@@ -8,7 +8,7 @@ import (
 
 type Deduplicator struct{}
 
-func (d Deduplicator) Transform(in []model.Deployment) []model.Deployment {
+func (d Deduplicator) Filter(in []model.Deployment) []model.Deployment {
 	var out []model.Deployment
 	for _, candidate := range in {
 		found := slices.ContainsFunc(out, candidate.Equals)
