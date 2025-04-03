@@ -30,6 +30,16 @@ func NewDockerRuntime() (*DockerRuntime, error) {
 		return nil, err
 	}
 
+	if cli == nil {
+		return nil, fmt.Errorf("docker client initialization returned nil")
+	}
+
+	_, err = cli.Ping(context.Background())
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &DockerRuntime{cli: cli}, nil
 }
 
@@ -82,11 +92,15 @@ func (r *DockerRuntime) List() ([]model.Deployment, error) {
 	var result []model.Deployment
 
 	for _, container := range containers {
+		if len(container.Names) == 0 {
+			return nil, fmt.Errorf("container %s has no name", container.ID)
+		}
+
 		name := strings.TrimPrefix(container.Names[0], "/")
 
 		inspect, err := r.cli.ContainerInspect(ctx, container.ID)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to inspect container %s: %w", container.ID, err)
 		}
 
 		env := parseRuntimeEnvironment(inspect.Config.Env)
