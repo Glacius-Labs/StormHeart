@@ -8,6 +8,10 @@ import (
 
 type Deduplicator struct{}
 
+func NewDeduplicator() *Deduplicator {
+	return &Deduplicator{}
+}
+
 func (d Deduplicator) Filter(in []model.Deployment) []model.Deployment {
 	var out []model.Deployment
 	for _, candidate := range in {

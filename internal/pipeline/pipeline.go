@@ -10,13 +10,13 @@ import (
 type Pipeline struct {
 	mu      sync.Mutex
 	sources map[string][]model.Deployment
-	Target  func([]model.Deployment)
+	Target  func(deployments []model.Deployment)
 	Filters []Filter
 	logger  *zap.SugaredLogger
 }
 
 func NewPipeline(
-	target func([]model.Deployment),
+	target func(deployments []model.Deployment),
 	logger *zap.SugaredLogger,
 	filters ...Filter,
 ) *Pipeline {
