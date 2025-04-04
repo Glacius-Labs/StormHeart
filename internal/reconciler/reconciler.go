@@ -18,9 +18,11 @@ func NewReconciler(runtime runtime.Runtime, logger *zap.SugaredLogger) *Reconcil
 	if runtime == nil {
 		panic("Reconciler requires a non-nil Runtime")
 	}
+
 	if logger == nil {
 		panic("Reconciler requires a non-nil Logger")
 	}
+
 	return &Reconciler{
 		Runtime: runtime,
 		Logger:  logger,
@@ -28,7 +30,7 @@ func NewReconciler(runtime runtime.Runtime, logger *zap.SugaredLogger) *Reconcil
 }
 
 func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) error {
-	actual, err := r.Runtime.List()
+	actual, err := r.Runtime.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list running containers: %w", err)
 	}
@@ -63,7 +65,7 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) erro
 	var startErrs, stopErrs int
 
 	for _, d := range toStop {
-		if err := r.Runtime.Remove(d); err != nil {
+		if err := r.Runtime.Remove(ctx, d); err != nil {
 			stopErrs++
 			r.Logger.Errorw("Failed to stop container", "deployment", d, "error", err)
 		} else {
@@ -72,7 +74,7 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) erro
 	}
 
 	for _, d := range toStart {
-		if err := r.Runtime.Deploy(d); err != nil {
+		if err := r.Runtime.Deploy(ctx, d); err != nil {
 			startErrs++
 			r.Logger.Errorw("Failed to start container", "deployment", d, "error", err)
 		} else {

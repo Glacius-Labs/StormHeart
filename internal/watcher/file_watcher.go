@@ -44,7 +44,7 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 		return err
 	}
 
-	if err := w.loadAndPush(); err != nil {
+	if err := w.loadAndPush(ctx); err != nil {
 		w.logger.Errorw("Initial load failed", "error", err)
 	}
 
@@ -72,7 +72,12 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 						debounce.Stop()
 					}
 					debounce = time.AfterFunc(debounceDelay, func() {
-						if err := w.loadAndPush(); err != nil {
+						if ctx.Err() != nil {
+							w.logger.Infow("Debounce canceled due to shutdown")
+							return
+						}
+
+						if err := w.loadAndPush(ctx); err != nil {
 							w.logger.Errorw("Reload failed", "error", err)
 						}
 					})
@@ -97,7 +102,7 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *FileWatcher) loadAndPush() error {
+func (w *FileWatcher) loadAndPush(ctx context.Context) error {
 	data, err := os.ReadFile(w.path)
 	if err != nil {
 		return err
@@ -110,7 +115,7 @@ func (w *FileWatcher) loadAndPush() error {
 
 	w.logger.Infow("Loaded deployments", "count", len(deployments), "path", w.path)
 
-	w.pushFunc(w.sourceName, deployments)
+	w.pushFunc(ctx, w.sourceName, deployments)
 
 	return nil
 }

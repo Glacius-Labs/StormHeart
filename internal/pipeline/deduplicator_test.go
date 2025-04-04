@@ -9,7 +9,7 @@ import (
 )
 
 func TestDeduplicator_RemovesDuplicates(t *testing.T) {
-	d := pipeline.Deduplicator{}
+	d := pipeline.NewDeduplicator()
 
 	input := []model.Deployment{
 		{Name: "web", Image: "nginx"},

@@ -1,6 +1,8 @@
 package pipeline_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/glacius-labs/StormHeart/internal/model"
@@ -11,17 +13,18 @@ import (
 
 func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 	var called []model.Deployment
-	target := func(in []model.Deployment) {
-		called = in
+	targetFunc := func(ctx context.Context, deployments []model.Deployment) error {
+		called = deployments
+		return nil
 	}
 
 	p := pipeline.NewPipeline(
-		target,
+		targetFunc,
 		zaptest.NewLogger(t).Sugar(),
 		pipeline.Deduplicator{},
 	)
 
-	p.Push("source1", []model.Deployment{
+	p.Push(context.Background(), "source1", []model.Deployment{
 		{Name: "a", Image: "x"},
 	})
 
@@ -31,21 +34,24 @@ func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 
 func TestPipeline_MultiSource_Deduplication(t *testing.T) {
 	var received []model.Deployment
-	target := func(in []model.Deployment) {
-		received = in
+	targetFunc := func(ctx context.Context, deployments []model.Deployment) error {
+		received = deployments
+		return nil
 	}
 
 	p := pipeline.NewPipeline(
-		target,
+		targetFunc,
 		zaptest.NewLogger(t).Sugar(),
 		pipeline.Deduplicator{},
 	)
 
-	p.Push("file", []model.Deployment{
+	ctx := context.Background()
+
+	p.Push(ctx, "file", []model.Deployment{
 		{Name: "worker", Image: "alpine"},
 	})
 
-	p.Push("broker", []model.Deployment{
+	p.Push(ctx, "broker", []model.Deployment{
 		{Name: "worker", Image: "alpine"},
 		{Name: "db", Image: "pg"},
 	})
@@ -70,5 +76,26 @@ func TestNewPipeline_PanicsOnNilLogger(t *testing.T) {
 		}
 	}()
 
-	_ = pipeline.NewPipeline(func([]model.Deployment) {}, nil)
+	_ = pipeline.NewPipeline(func(context.Context, []model.Deployment) error { return nil }, nil)
+}
+
+func TestPipeline_TargetError_IsHandled(t *testing.T) {
+	var called bool
+
+	targetFunc := func(ctx context.Context, deployments []model.Deployment) error {
+		called = true
+		return fmt.Errorf("simulated target failure")
+	}
+
+	p := pipeline.NewPipeline(
+		targetFunc,
+		zaptest.NewLogger(t).Sugar(),
+		pipeline.Deduplicator{},
+	)
+
+	p.Push(context.Background(), "source1", []model.Deployment{
+		{Name: "fail", Image: "broken"},
+	})
+
+	require.True(t, called, "target function should have been called despite error")
 }

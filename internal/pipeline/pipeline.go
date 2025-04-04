@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"sync"
 
 	"github.com/glacius-labs/StormHeart/internal/model"
@@ -8,19 +9,19 @@ import (
 )
 
 type Pipeline struct {
-	mu      sync.Mutex
-	sources map[string][]model.Deployment
-	Target  func(deployments []model.Deployment)
-	Filters []Filter
-	logger  *zap.SugaredLogger
+	mu         sync.Mutex
+	sources    map[string][]model.Deployment
+	TargetFunc TargetFunc
+	Filters    []Filter
+	logger     *zap.SugaredLogger
 }
 
 func NewPipeline(
-	target func(deployments []model.Deployment),
+	targetFunc TargetFunc,
 	logger *zap.SugaredLogger,
 	filters ...Filter,
 ) *Pipeline {
-	if target == nil {
+	if targetFunc == nil {
 		panic("Pipeline requires a non-nil Target")
 	}
 	if logger == nil {
@@ -28,14 +29,14 @@ func NewPipeline(
 	}
 
 	return &Pipeline{
-		sources: make(map[string][]model.Deployment),
-		Target:  target,
-		Filters: filters,
-		logger:  logger,
+		sources:    make(map[string][]model.Deployment),
+		TargetFunc: targetFunc,
+		Filters:    filters,
+		logger:     logger,
 	}
 }
 
-func (p *Pipeline) Push(source string, deployments []model.Deployment) {
+func (p *Pipeline) Push(ctx context.Context, source string, deployments []model.Deployment) {
 	p.mu.Lock()
 
 	p.sources[source] = deployments
@@ -61,5 +62,7 @@ func (p *Pipeline) Push(source string, deployments []model.Deployment) {
 		"totalAfterTransforms", finalCount,
 	)
 
-	p.Target(filtered)
+	if err := p.TargetFunc(ctx, filtered); err != nil {
+		p.logger.Errorw("Target function failed", "error", err)
+	}
 }

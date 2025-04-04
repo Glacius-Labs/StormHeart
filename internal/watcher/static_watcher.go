@@ -29,6 +29,9 @@ func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger 
 
 func (w *StaticWatcher) Start(ctx context.Context) error {
 	w.logger.Infow("Pushing static deployments", "count", len(w.deployments), "source", SourceNameStaticWatcher)
-	w.pushFunc(SourceNameStaticWatcher, w.deployments)
-	return nil
+	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
+
+	<-ctx.Done()
+	w.logger.Infow("Static watcher shutdown")
+	return nil // << DO NOT return an error on context cancel
 }

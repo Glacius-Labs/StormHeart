@@ -28,7 +28,7 @@ func TestFileWatcher_InitialLoad(t *testing.T) {
 		received []model.Deployment
 	)
 
-	push := func(source string, deployments []model.Deployment) {
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		mu.Lock()
 		defer mu.Unlock()
 		called = true
@@ -70,7 +70,7 @@ func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
 		names     []string
 	)
 
-	push := func(source string, deployments []model.Deployment) {
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		mu.Lock()
 		defer mu.Unlock()
 		callCount++
@@ -118,7 +118,7 @@ func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
 		callCount int
 	)
 
-	push := func(source string, deployments []model.Deployment) {
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		mu.Lock()
 		defer mu.Unlock()
 		callCount++
@@ -152,7 +152,7 @@ func TestFileWatcher_PanicsOnNilLogger(t *testing.T) {
 		}
 	}()
 
-	_ = watcher.NewFileWatcher("somefile.json", "source", func(string, []model.Deployment) {}, nil)
+	_ = watcher.NewFileWatcher("somefile.json", "source", func(context.Context, string, []model.Deployment) {}, nil)
 }
 
 func TestFileWatcher_InvalidFilePath(t *testing.T) {
@@ -160,7 +160,7 @@ func TestFileWatcher_InvalidFilePath(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 
 	var called bool
-	push := func(source string, deployments []model.Deployment) {
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		called = true
 	}
 
@@ -183,7 +183,7 @@ func TestFileWatcher_NonExistentFile(t *testing.T) {
 	missingPath := filepath.Join(tempDir, "not-there.json")
 
 	logger := zaptest.NewLogger(t).Sugar()
-	w := watcher.NewFileWatcher(missingPath, "missing", func(string, []model.Deployment) {}, logger)
+	w := watcher.NewFileWatcher(missingPath, "missing", func(context.Context, string, []model.Deployment) {}, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -201,7 +201,7 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	assert.NoError(t, err)
 
 	// broken pushFunc: panics internally
-	push := func(source string, deployments []model.Deployment) {
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		panic("simulated push failure")
 	}
 
@@ -221,4 +221,49 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	}()
 
 	time.Sleep(300 * time.Millisecond)
+}
+
+func TestFileWatcher_DebounceCancelsOnShutdown(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "deployments.json")
+
+	// Create a valid deployment file
+	data := `[{"name":"test","image":"alpine","environment":{},"tags":[]}]`
+	assert.NoError(t, os.WriteFile(filePath, []byte(data), 0644))
+
+	var mu sync.Mutex
+	var pushCount int
+
+	push := func(ctx context.Context, source string, deployments []model.Deployment) {
+		mu.Lock()
+		defer mu.Unlock()
+		pushCount++
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	logger := zaptest.NewLogger(t).Sugar()
+	w := watcher.NewFileWatcher(filePath, "test-debounce-shutdown", push, logger)
+
+	go func() {
+		_ = w.Start(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond) // Wait for initial load
+
+	// Trigger a fake file change (but don't actually write)
+	// This will schedule a debounce
+	_ = os.Chtimes(filePath, time.Now(), time.Now())
+
+	// Cancel context immediately while debounce is waiting
+	cancel()
+
+	time.Sleep(400 * time.Millisecond) // Wait for debounce to settle
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Only the initial push should have happened
+	assert.Equal(t, 1, pushCount, "should not push again after shutdown")
 }

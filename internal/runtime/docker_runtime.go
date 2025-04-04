@@ -43,9 +43,7 @@ func NewDockerRuntime() (*DockerRuntime, error) {
 	return &DockerRuntime{cli: cli}, nil
 }
 
-func (r *DockerRuntime) Deploy(deployment model.Deployment) error {
-	ctx := context.Background()
-
+func (r *DockerRuntime) Deploy(ctx context.Context, deployment model.Deployment) error {
 	_ = r.cli.ContainerRemove(ctx, deployment.Name, container.RemoveOptions{Force: true})
 
 	_, err := r.cli.ImagePull(ctx, deployment.Image, image.PullOptions{})
@@ -71,14 +69,11 @@ func (r *DockerRuntime) Deploy(deployment model.Deployment) error {
 	return nil
 }
 
-func (r *DockerRuntime) Remove(deployment model.Deployment) error {
-	ctx := context.Background()
+func (r *DockerRuntime) Remove(ctx context.Context, deployment model.Deployment) error {
 	return r.cli.ContainerRemove(ctx, deployment.Name, container.RemoveOptions{Force: true})
 }
 
-func (r *DockerRuntime) List() ([]model.Deployment, error) {
-	ctx := context.Background()
-
+func (r *DockerRuntime) List(ctx context.Context) ([]model.Deployment, error) {
 	containers, err := r.cli.ContainerList(ctx, container.ListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg(LabelOwner, OwnerStormHeart),

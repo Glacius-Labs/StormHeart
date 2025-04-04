@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -20,26 +21,26 @@ func NewMockRuntime(initial []model.Deployment) *MockRuntime {
 	}
 }
 
-func (m *MockRuntime) Deploy(d model.Deployment) error {
-	if m.FailDeploy[d.Name] {
-		return fmt.Errorf("simulated deploy failure for %s", d.Name)
+func (m *MockRuntime) Deploy(ctx context.Context, deployment model.Deployment) error {
+	if m.FailDeploy[deployment.Name] {
+		return fmt.Errorf("simulated deploy failure for %s", deployment.Name)
 	}
 	for i, existing := range m.Active {
-		if existing.Name == d.Name {
-			m.Active[i] = d
+		if existing.Name == deployment.Name {
+			m.Active[i] = deployment
 			return nil
 		}
 	}
-	m.Active = append(m.Active, d)
+	m.Active = append(m.Active, deployment)
 	return nil
 }
 
-func (m *MockRuntime) Remove(d model.Deployment) error {
-	if m.FailRemove[d.Name] {
-		return fmt.Errorf("simulated remove failure for %s", d.Name)
+func (m *MockRuntime) Remove(ctx context.Context, deployment model.Deployment) error {
+	if m.FailRemove[deployment.Name] {
+		return fmt.Errorf("simulated remove failure for %s", deployment.Name)
 	}
 	for i, existing := range m.Active {
-		if existing.Name == d.Name {
+		if existing.Name == deployment.Name {
 			m.Active = slices.Delete(m.Active, i, i+1)
 			return nil
 		}
@@ -47,7 +48,7 @@ func (m *MockRuntime) Remove(d model.Deployment) error {
 	return nil
 }
 
-func (m *MockRuntime) List() ([]model.Deployment, error) {
+func (m *MockRuntime) List(ctx context.Context) ([]model.Deployment, error) {
 	if m.FailList {
 		return nil, fmt.Errorf("simulated list failure")
 	}

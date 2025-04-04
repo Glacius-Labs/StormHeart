@@ -1,5 +1,9 @@
 package watcher
 
-import "github.com/glacius-labs/StormHeart/internal/model"
+import (
+	"context"
 
-type PushFunc func(name string, deployments []model.Deployment)
+	"github.com/glacius-labs/StormHeart/internal/model"
+)
+
+type PushFunc func(ctx context.Context, sourceName string, deployments []model.Deployment)

@@ -1,9 +1,13 @@
 package runtime
 
-import "github.com/glacius-labs/StormHeart/internal/model"
+import (
+	"context"
+
+	"github.com/glacius-labs/StormHeart/internal/model"
+)
 
 type Runtime interface {
-	Deploy(deployment model.Deployment) error
-	Remove(deployment model.Deployment) error
-	List() ([]model.Deployment, error)
+	Deploy(ctx context.Context, deployment model.Deployment) error
+	Remove(ctx context.Context, deployment model.Deployment) error
+	List(ctx context.Context) ([]model.Deployment, error)
 }
