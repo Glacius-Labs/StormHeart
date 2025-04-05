@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const SourceNameStaticWatcher = "internal"
+const SourceNameStaticWatcher = "static"
 
 type StaticWatcher struct {
 	deployments []model.Deployment
@@ -28,7 +28,7 @@ func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger 
 }
 
 func (w *StaticWatcher) Start(ctx context.Context) error {
-	w.logger.Infow("Pushing static deployments", "count", len(w.deployments), "source", SourceNameStaticWatcher)
+	w.logger.Infow("Pushing static deployments", "count", len(w.deployments))
 	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
 
 	<-ctx.Done()

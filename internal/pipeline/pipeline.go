@@ -51,15 +51,15 @@ func (p *Pipeline) Push(ctx context.Context, source string, deployments []model.
 
 	filtered := combined
 	for _, t := range p.Filters {
-		filtered = t.Filter(filtered)
+		filtered = t.Apply(filtered)
 	}
 	finalCount := len(filtered)
 
 	p.logger.Infow("Pipeline push processed",
 		"source", source,
 		"inputCount", len(deployments),
-		"totalBeforeTransforms", originalCount,
-		"totalAfterTransforms", finalCount,
+		"totalBeforeFilters", originalCount,
+		"totalAfterFilters", finalCount,
 	)
 
 	if err := p.TargetFunc(ctx, filtered); err != nil {

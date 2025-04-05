@@ -21,7 +21,7 @@ func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 	p := pipeline.NewPipeline(
 		targetFunc,
 		zaptest.NewLogger(t).Sugar(),
-		pipeline.Deduplicator{},
+		pipeline.NewDeduplicator(),
 	)
 
 	p.Push(context.Background(), "source1", []model.Deployment{
