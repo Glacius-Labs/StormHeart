@@ -11,10 +11,10 @@ import (
 
 type Reconciler struct {
 	Runtime runtime.Runtime
-	Logger  *zap.SugaredLogger
+	Logger  *zap.Logger
 }
 
-func NewReconciler(runtime runtime.Runtime, logger *zap.SugaredLogger) *Reconciler {
+func NewReconciler(runtime runtime.Runtime, logger *zap.Logger) *Reconciler {
 	if runtime == nil {
 		panic("Reconciler requires a non-nil Runtime")
 	}
@@ -67,25 +67,38 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) erro
 	for _, d := range toStop {
 		if err := r.Runtime.Remove(ctx, d); err != nil {
 			stopErrs++
-			r.Logger.Errorw("Failed to stop container", "deployment", d, "error", err)
+			r.Logger.Error(
+				"Failed to stop container",
+				zap.String("deployment", d.Name),
+				zap.Error(err))
 		} else {
-			r.Logger.Infow("Stopped container", "deployment", d.Name)
+			r.Logger.Info(
+				"Stopped container",
+				zap.String("deployment", d.Name),
+			)
 		}
 	}
 
 	for _, d := range toStart {
 		if err := r.Runtime.Deploy(ctx, d); err != nil {
 			startErrs++
-			r.Logger.Errorw("Failed to start container", "deployment", d, "error", err)
+			r.Logger.Error(
+				"Failed to start container",
+				zap.String("deployment", d.Name),
+				zap.Error(err),
+			)
 		} else {
-			r.Logger.Infow("Started container", "deployment", d.Name)
+			r.Logger.Info(
+				"Started container",
+				zap.String("deployment", d.Name),
+			)
 		}
 	}
 
-	r.Logger.Infow("Reconciliation complete",
-		"started", len(toStart),
-		"stopped", len(toStop),
-		"errors", startErrs+stopErrs,
+	r.Logger.Info("Reconciliation complete",
+		zap.Int("started", len(toStart)),
+		zap.Int("stopped", len(toStop)),
+		zap.Int("errors", startErrs+stopErrs),
 	)
 
 	if startErrs+stopErrs > 0 {

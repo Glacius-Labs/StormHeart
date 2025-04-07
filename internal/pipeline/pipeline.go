@@ -13,12 +13,12 @@ type Pipeline struct {
 	sources    map[string][]model.Deployment
 	TargetFunc TargetFunc
 	Filters    []Filter
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 }
 
 func NewPipeline(
 	targetFunc TargetFunc,
-	logger *zap.SugaredLogger,
+	logger *zap.Logger,
 	filters ...Filter,
 ) *Pipeline {
 	if targetFunc == nil {
@@ -55,14 +55,14 @@ func (p *Pipeline) Push(ctx context.Context, source string, deployments []model.
 	}
 	finalCount := len(filtered)
 
-	p.logger.Infow("Pipeline push processed",
-		"source", source,
-		"inputCount", len(deployments),
-		"totalBeforeFilters", originalCount,
-		"totalAfterFilters", finalCount,
+	p.logger.Info("Pipeline push processed",
+		zap.String("source", source),
+		zap.Int("inputCount", len(deployments)),
+		zap.Int("totalBeforeFilters", originalCount),
+		zap.Int("totalAfterFilters", finalCount),
 	)
 
 	if err := p.TargetFunc(ctx, filtered); err != nil {
-		p.logger.Errorw("Target function failed", "error", err)
+		p.logger.Error("Target function failed", zap.Error(err))
 	}
 }

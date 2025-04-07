@@ -26,7 +26,7 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 		gotDeployments = deployments
 	}
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewStaticWatcher(expected, push, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())

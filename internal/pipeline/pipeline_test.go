@@ -20,7 +20,7 @@ func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 
 	p := pipeline.NewPipeline(
 		targetFunc,
-		zaptest.NewLogger(t).Sugar(),
+		zaptest.NewLogger(t),
 		pipeline.NewDeduplicator(),
 	)
 
@@ -41,7 +41,7 @@ func TestPipeline_MultiSource_Deduplication(t *testing.T) {
 
 	p := pipeline.NewPipeline(
 		targetFunc,
-		zaptest.NewLogger(t).Sugar(),
+		zaptest.NewLogger(t),
 		pipeline.Deduplicator{},
 	)
 
@@ -66,7 +66,7 @@ func TestNewPipeline_PanicsOnNilTarget(t *testing.T) {
 		}
 	}()
 
-	_ = pipeline.NewPipeline(nil, zaptest.NewLogger(t).Sugar())
+	_ = pipeline.NewPipeline(nil, zaptest.NewLogger(t))
 }
 
 func TestNewPipeline_PanicsOnNilLogger(t *testing.T) {
@@ -89,7 +89,7 @@ func TestPipeline_TargetError_IsHandled(t *testing.T) {
 
 	p := pipeline.NewPipeline(
 		targetFunc,
-		zaptest.NewLogger(t).Sugar(),
+		zaptest.NewLogger(t),
 		pipeline.Deduplicator{},
 	)
 

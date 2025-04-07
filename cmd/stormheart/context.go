@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func setupSignalContext(logger *zap.SugaredLogger) context.Context {
+func setupSignalContext(logger *zap.Logger) context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signals := make(chan os.Signal, 1)
@@ -17,7 +17,7 @@ func setupSignalContext(logger *zap.SugaredLogger) context.Context {
 
 	go func() {
 		sig := <-signals
-		logger.Infow("Received shutdown signal", "signal", sig)
+		logger.Info("Received shutdown signal", zap.String("signal", sig.String()))
 		cancel()
 	}()
 

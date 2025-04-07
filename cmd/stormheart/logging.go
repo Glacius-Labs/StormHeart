@@ -3,27 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func setupLogger(level string) (*zap.SugaredLogger, error) {
-	var lvl zapcore.Level
-	switch strings.ToLower(level) {
-	case "debug":
-		lvl = zap.DebugLevel
-	case "info", "":
-		lvl = zap.InfoLevel
-	case "warn":
-		lvl = zap.WarnLevel
-	case "error":
-		lvl = zap.ErrorLevel
-	default:
-		return nil, fmt.Errorf("invalid log level: %s", level)
-	}
-
+func setupLogger() (*zap.Logger, error) {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -31,7 +16,7 @@ func setupLogger(level string) (*zap.SugaredLogger, error) {
 	consoleCore := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderCfg),
 		zapcore.Lock(os.Stdout),
-		lvl,
+		zap.InfoLevel,
 	)
 
 	logFile, err := os.OpenFile("stormheart.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -42,11 +27,11 @@ func setupLogger(level string) (*zap.SugaredLogger, error) {
 	fileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(encoderCfg),
 		zapcore.AddSync(logFile),
-		lvl,
+		zap.InfoLevel,
 	)
 
 	combinedCore := zapcore.NewTee(consoleCore, fileCore)
 
 	logger := zap.New(combinedCore, zap.AddCaller())
-	return logger.Sugar(), nil
+	return logger, nil
 }

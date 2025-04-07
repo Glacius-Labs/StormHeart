@@ -1,4 +1,4 @@
-package bootstrap
+package main
 
 import "github.com/glacius-labs/StormHeart/internal/model"
 

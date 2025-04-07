@@ -8,7 +8,12 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
-require go.uber.org/multierr v1.10.0 // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
+)
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
@@ -17,6 +22,7 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-logr/logr v1.4.2 // indirect

@@ -38,7 +38,7 @@ func TestFileWatcher_InitialLoad(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(filePath, "test-source", push, logger)
 
 	go func() {
@@ -82,7 +82,7 @@ func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(filePath, "test-reload", push, logger)
 
 	go func() {
@@ -127,7 +127,7 @@ func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(filePath, "test-bad-json", push, logger)
 
 	go func() {
@@ -157,7 +157,7 @@ func TestFileWatcher_PanicsOnNilLogger(t *testing.T) {
 
 func TestFileWatcher_InvalidFilePath(t *testing.T) {
 	tempDir := t.TempDir() // a directory, not a file
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 
 	var called bool
 	push := func(ctx context.Context, source string, deployments []model.Deployment) {
@@ -182,7 +182,7 @@ func TestFileWatcher_NonExistentFile(t *testing.T) {
 	tempDir := t.TempDir()
 	missingPath := filepath.Join(tempDir, "not-there.json")
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(missingPath, "missing", func(context.Context, string, []model.Deployment) {}, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -208,7 +208,7 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(filePath, "fail-push", push, logger)
 
 	// Watcher should not panic, but the pushFunc will
@@ -243,7 +243,7 @@ func TestFileWatcher_DebounceCancelsOnShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	w := watcher.NewFileWatcher(filePath, "test-debounce-shutdown", push, logger)
 
 	go func() {

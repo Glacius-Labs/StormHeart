@@ -13,7 +13,7 @@ import (
 
 func TestReconciler_DeploysMissingContainers(t *testing.T) {
 	r := runtime.NewMockRuntime(nil)
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	desired := []model.Deployment{
@@ -29,7 +29,7 @@ func TestReconciler_DeploysMissingContainers(t *testing.T) {
 func TestReconciler_RemovesObsoleteContainers(t *testing.T) {
 	initial := []model.Deployment{{Name: "stale", Image: "old"}}
 	r := runtime.NewMockRuntime(initial)
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	err := rec.Apply(context.Background(), nil)
@@ -40,7 +40,7 @@ func TestReconciler_RemovesObsoleteContainers(t *testing.T) {
 func TestReconciler_RestartsChangedDeployment(t *testing.T) {
 	initial := []model.Deployment{{Name: "api", Image: "v1"}}
 	r := runtime.NewMockRuntime(initial)
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	desired := []model.Deployment{{Name: "api", Image: "v2"}}
@@ -52,7 +52,7 @@ func TestReconciler_RestartsChangedDeployment(t *testing.T) {
 func TestReconciler_DoesNothingWhenInSync(t *testing.T) {
 	aligned := []model.Deployment{{Name: "cache", Image: "redis"}}
 	r := runtime.NewMockRuntime(aligned)
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	err := rec.Apply(context.Background(), aligned)
@@ -64,7 +64,7 @@ func TestReconciler_DeployFailureIsReported(t *testing.T) {
 	r := &runtime.MockRuntime{
 		FailDeploy: map[string]bool{"web": true},
 	}
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	err := rec.Apply(context.Background(), []model.Deployment{
@@ -79,7 +79,7 @@ func TestReconciler_RemoveFailureIsReported(t *testing.T) {
 		Active:     []model.Deployment{{Name: "stale", Image: "busybox"}},
 		FailRemove: map[string]bool{"stale": true},
 	}
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	err := rec.Apply(context.Background(), nil)
@@ -90,7 +90,7 @@ func TestReconciler_ListFailureIsReported(t *testing.T) {
 	r := &runtime.MockRuntime{
 		FailList: true,
 	}
-	logger := zaptest.NewLogger(t).Sugar()
+	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
 	err := rec.Apply(context.Background(), []model.Deployment{
@@ -106,7 +106,7 @@ func TestNewReconciler_PanicsOnNilRuntime(t *testing.T) {
 			t.Fatal("expected panic on nil Runtime, got none")
 		}
 	}()
-	_ = reconciler.NewReconciler(nil, zaptest.NewLogger(t).Sugar())
+	_ = reconciler.NewReconciler(nil, zaptest.NewLogger(t))
 }
 
 func TestNewReconciler_PanicsOnNilLogger(t *testing.T) {

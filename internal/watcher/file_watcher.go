@@ -17,10 +17,10 @@ type FileWatcher struct {
 	path       string
 	sourceName string
 	pushFunc   PushFunc
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 }
 
-func NewFileWatcher(path, sourceName string, pushFunc PushFunc, logger *zap.SugaredLogger) *FileWatcher {
+func NewFileWatcher(path, sourceName string, pushFunc PushFunc, logger *zap.Logger) *FileWatcher {
 	if logger == nil {
 		panic("FileWatcher requires a non-nil logger")
 	}
@@ -45,7 +45,7 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 	}
 
 	if err := w.loadAndPush(ctx); err != nil {
-		w.logger.Errorw("Initial load failed", "error", err)
+		w.logger.Error("Initial load failed", zap.Error(err))
 	}
 
 	var (
@@ -65,7 +65,7 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 				}
 
 				if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
-					w.logger.Infow("Detected file change", "path", event.Name)
+					w.logger.Info("Detected file change", zap.String("path", event.Name))
 
 					mu.Lock()
 					if debounce != nil {
@@ -73,12 +73,12 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 					}
 					debounce = time.AfterFunc(debounceDelay, func() {
 						if ctx.Err() != nil {
-							w.logger.Infow("Debounce canceled due to shutdown")
+							w.logger.Info("Debounce canceled due to shutdown")
 							return
 						}
 
 						if err := w.loadAndPush(ctx); err != nil {
-							w.logger.Errorw("Reload failed", "error", err)
+							w.logger.Error("Reload failed", zap.Error(err))
 						}
 					})
 					mu.Unlock()
@@ -86,13 +86,13 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 
 			case err, ok := <-watcher.Errors:
 				if !ok {
-					w.logger.Errorw("Watcher error channel closed unexpectedly")
+					w.logger.Error("Watcher error channel closed unexpectedly")
 					return
 				}
 
-				w.logger.Errorw("Watcher error received", "error", err)
+				w.logger.Error("Watcher error received", zap.Error(err))
 			case <-ctx.Done():
-				w.logger.Infow("Shutting down file watcher")
+				w.logger.Info("Shutting down file watcher")
 				return
 			}
 		}
@@ -113,7 +113,11 @@ func (w *FileWatcher) loadAndPush(ctx context.Context) error {
 		return err
 	}
 
-	w.logger.Infow("Loaded deployments", "count", len(deployments), "path", w.path)
+	w.logger.Info(
+		"Loaded deployments",
+		zap.Int("count", len(deployments)),
+		zap.String("path", w.path),
+	)
 
 	w.pushFunc(ctx, w.sourceName, deployments)
 
