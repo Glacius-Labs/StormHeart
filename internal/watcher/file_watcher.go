@@ -100,7 +100,10 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 
 	<-done
 
-	w.pushFunc(ctx, w.sourceName, []model.Deployment{})
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	w.pushFunc(shutdownCtx, w.sourceName, []model.Deployment{})
 
 	return nil
 }

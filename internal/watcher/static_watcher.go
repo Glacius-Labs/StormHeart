@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"time"
 
 	"github.com/glacius-labs/StormHeart/internal/model"
 	"go.uber.org/zap"
@@ -29,11 +30,16 @@ func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger 
 
 func (w *StaticWatcher) Start(ctx context.Context) error {
 	w.logger.Info("Pushing static deployments", zap.Int("count", len(w.deployments)))
+
 	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
 
 	<-ctx.Done()
 
-	w.pushFunc(ctx, SourceNameStaticWatcher, []model.Deployment{})
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	w.pushFunc(shutdownCtx, SourceNameStaticWatcher, []model.Deployment{})
+
 	w.logger.Info("Static watcher shutdown")
 
 	return nil

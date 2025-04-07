@@ -3,6 +3,7 @@ package watcher
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/glacius-labs/StormHeart/internal/model"
 	"github.com/glacius-labs/StormHeart/internal/mqtt"
@@ -45,7 +46,10 @@ func (w *MQTTWatcher) Start(ctx context.Context) error {
 	w.logger.Info("Context canceled, disconnecting MQTT client")
 	w.client.Disconnect()
 
-	w.pushFunc(ctx, w.sourceName, []model.Deployment{})
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	w.pushFunc(shutdownCtx, w.sourceName, []model.Deployment{})
 
 	return nil
 }
