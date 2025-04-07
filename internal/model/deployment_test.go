@@ -14,8 +14,10 @@ func TestNewDeployment_ValidInput(t *testing.T) {
 	require.Equal(t, "nginx", d.Image)
 	require.NotNil(t, d.Labels)
 	require.NotNil(t, d.Environment)
+	require.NotNil(t, d.PortMappings)
 	require.Empty(t, d.Labels)
 	require.Empty(t, d.Environment)
+	require.Empty(t, d.PortMappings)
 }
 
 func TestNewDeployment_EmptyNameFails(t *testing.T) {
@@ -36,7 +38,10 @@ func TestDeployment_Equals_True(t *testing.T) {
 			"tier": "frontend",
 		},
 		Environment: map[string]string{
-			"PORT": "80",
+			"ENV": "something",
+		},
+		PortMappings: []model.PortMapping{
+			{1234, 1234},
 		},
 	}
 
@@ -47,7 +52,10 @@ func TestDeployment_Equals_True(t *testing.T) {
 			"tier": "frontend",
 		},
 		Environment: map[string]string{
-			"PORT": "80",
+			"ENV": "something",
+		},
+		PortMappings: []model.PortMapping{
+			{1234, 1234},
 		},
 	}
 
@@ -62,7 +70,10 @@ func TestDeployment_Equals_False(t *testing.T) {
 			"tier": "frontend",
 		},
 		Environment: map[string]string{
-			"PORT": "80",
+			"ENV": "something",
+		},
+		PortMappings: []model.PortMapping{
+			{1234, 1234},
 		},
 	}
 
@@ -81,9 +92,15 @@ func TestDeployment_Equals_False(t *testing.T) {
 	// Env mismatch
 	diffEnv := base
 	diffEnv.Environment = map[string]string{
-		"PORT": "8080",
+		"ENV": "something-else",
 	}
 	require.False(t, base.Equals(diffEnv))
+
+	diffPortMappings := base
+	diffPortMappings.PortMappings = []model.PortMapping{
+		{1234, 1235},
+	}
+	require.False(t, base.Equals(diffPortMappings))
 
 	// Extra label
 	diffExtraLabel := base
@@ -96,8 +113,16 @@ func TestDeployment_Equals_False(t *testing.T) {
 	// Extra environment variable
 	diffExtraEnv := base
 	diffExtraEnv.Environment = map[string]string{
-		"PORT": "80",
+		"ENV":  "something",
 		"MODE": "debug",
 	}
 	require.False(t, base.Equals(diffExtraEnv))
+
+	// Extra environment variable
+	diffExtraPortMappings := base
+	diffExtraPortMappings.PortMappings = []model.PortMapping{
+		{1234, 1234},
+		{1234, 1235},
+	}
+	require.False(t, base.Equals(diffExtraPortMappings))
 }

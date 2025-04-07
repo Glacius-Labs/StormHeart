@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"maps"
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/glacius-labs/StormHeart/internal/model"
 )
 
@@ -53,9 +55,10 @@ func (r *DockerRuntime) Deploy(ctx context.Context, deployment model.Deployment)
 	}
 
 	resp, err := r.cli.ContainerCreate(ctx, &container.Config{
-		Image:  deployment.Image,
-		Labels: generateRuntimeLabels(deployment),
-		Env:    generateRuntimeEnvironment(deployment.Environment),
+		Image:        deployment.Image,
+		Labels:       generateRuntimeLabels(deployment),
+		Env:          generateRuntimeEnvironment(deployment.Environment),
+		ExposedPorts: generatePorts(deployment.PortMappings),
 	}, nil, nil, nil, deployment.Name)
 
 	if err != nil {
@@ -98,13 +101,16 @@ func (r *DockerRuntime) List(ctx context.Context) ([]model.Deployment, error) {
 			return nil, fmt.Errorf("failed to inspect container %s: %w", container.ID, err)
 		}
 
+		userLabels := filterUserLabels(container.Labels)
 		env := parseRuntimeEnvironment(inspect.Config.Env)
+		portMappings := parsePortMappings(inspect.NetworkSettings.Ports)
 
 		result = append(result, model.Deployment{
-			Name:        name,
-			Image:       container.Image,
-			Labels:      filterUserLabels(container.Labels),
-			Environment: env,
+			Name:         name,
+			Image:        container.Image,
+			Labels:       userLabels,
+			Environment:  env,
+			PortMappings: portMappings,
 		})
 	}
 
@@ -150,4 +156,52 @@ func parseRuntimeEnvironment(envList []string) map[string]string {
 		}
 	}
 	return result
+}
+
+func generatePorts(portMappings []model.PortMapping) nat.PortSet {
+	exposedPorts := nat.PortSet{}
+	portBindings := nat.PortMap{}
+
+	for _, mapping := range portMappings {
+		port := nat.Port(fmt.Sprint(mapping.ContainerPort) + "/tcp")
+		exposedPorts[port] = struct{}{}
+		portBindings[port] = []nat.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: fmt.Sprint(mapping.HostPort),
+			},
+		}
+	}
+
+	return exposedPorts
+}
+
+func parsePortMappings(ports nat.PortMap) []model.PortMapping {
+	var mappings []model.PortMapping
+
+	for containerPort, bindings := range ports {
+		portNum, err := strconv.Atoi(containerPort.Port())
+		if err != nil {
+			// Skip invalid ports (should never happen if docker is sane)
+			continue
+		}
+
+		for _, binding := range bindings {
+			if binding.HostPort == "" {
+				continue
+			}
+
+			hostPort, err := strconv.Atoi(binding.HostPort)
+			if err != nil {
+				continue
+			}
+
+			mappings = append(mappings, model.PortMapping{
+				HostPort:      hostPort,
+				ContainerPort: portNum,
+			})
+		}
+	}
+
+	return mappings
 }

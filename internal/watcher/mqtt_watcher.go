@@ -45,6 +45,8 @@ func (w *MQTTWatcher) Start(ctx context.Context) error {
 	w.logger.Info("Context canceled, disconnecting MQTT client")
 	w.client.Disconnect()
 
+	w.pushFunc(ctx, w.sourceName, []model.Deployment{})
+
 	return nil
 }
 

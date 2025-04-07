@@ -5,10 +5,11 @@ import (
 )
 
 type Deployment struct {
-	Name        string
-	Image       string
-	Labels      map[string]string
-	Environment map[string]string
+	Name         string
+	Image        string
+	Labels       map[string]string
+	Environment  map[string]string
+	PortMappings []PortMapping
 }
 
 func NewDeployment(name, image string, opts DeploymentOptions) (Deployment, error) {
@@ -27,11 +28,16 @@ func NewDeployment(name, image string, opts DeploymentOptions) (Deployment, erro
 		opts.Environment = map[string]string{}
 	}
 
+	if opts.PortMappings == nil {
+		opts.PortMappings = []PortMapping{}
+	}
+
 	return Deployment{
-		Name:        name,
-		Image:       image,
-		Labels:      opts.Labels,
-		Environment: opts.Environment,
+		Name:         name,
+		Image:        image,
+		Labels:       opts.Labels,
+		Environment:  opts.Environment,
+		PortMappings: opts.PortMappings,
 	}, nil
 }
 
@@ -40,7 +46,7 @@ func (d Deployment) Equals(other Deployment) bool {
 		return false
 	}
 
-	if len(d.Labels) != len(other.Labels) || len(d.Environment) != len(other.Environment) {
+	if len(d.Labels) != len(other.Labels) || len(d.Environment) != len(other.Environment) || len(d.PortMappings) != len(other.PortMappings) {
 		return false
 	}
 
@@ -52,6 +58,12 @@ func (d Deployment) Equals(other Deployment) bool {
 
 	for k, v := range d.Environment {
 		if other.Environment[k] != v {
+			return false
+		}
+	}
+
+	for i := range d.PortMappings {
+		if !d.PortMappings[i].Equals(other.PortMappings[i]) {
 			return false
 		}
 	}

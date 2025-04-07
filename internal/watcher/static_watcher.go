@@ -32,6 +32,9 @@ func (w *StaticWatcher) Start(ctx context.Context) error {
 	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
 
 	<-ctx.Done()
+
+	w.pushFunc(ctx, SourceNameStaticWatcher, []model.Deployment{})
 	w.logger.Info("Static watcher shutdown")
-	return nil // << DO NOT return an error on context cancel
+
+	return nil
 }

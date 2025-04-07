@@ -11,5 +11,11 @@ var staticDeployments = []model.Deployment{
 			"role":   "broker",
 		},
 		Environment: map[string]string{},
+		PortMappings: []model.PortMapping{
+			{
+				HostPort:      1883,
+				ContainerPort: 1883,
+			},
+		},
 	},
 }

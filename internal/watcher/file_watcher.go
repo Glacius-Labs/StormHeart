@@ -99,6 +99,9 @@ func (w *FileWatcher) Start(ctx context.Context) error {
 	}()
 
 	<-done
+
+	w.pushFunc(ctx, w.sourceName, []model.Deployment{})
+
 	return nil
 }
 
