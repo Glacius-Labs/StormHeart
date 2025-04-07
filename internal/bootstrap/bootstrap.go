@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/glacius-labs/StormHeart/internal/config"
-	"github.com/glacius-labs/StormHeart/internal/model"
 	"github.com/glacius-labs/StormHeart/internal/pipeline"
 	"github.com/glacius-labs/StormHeart/internal/reconciler"
 	"github.com/glacius-labs/StormHeart/internal/runtime"
@@ -33,7 +32,7 @@ func Bootstrap(ctx context.Context, cfg config.Config, logger *zap.SugaredLogger
 
 	// Initialize and start watchers
 	staticWatcher := watcher.NewStaticWatcher(
-		[]model.Deployment{},
+		staticDeployments,
 		pl.Push,
 		logger.With("component", "watcher", "source", "static"),
 	)
