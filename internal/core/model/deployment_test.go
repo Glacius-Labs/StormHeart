@@ -3,7 +3,7 @@ package model_test
 import (
 	"testing"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,7 +41,7 @@ func TestDeployment_Equals_True(t *testing.T) {
 			"ENV": "something",
 		},
 		PortMappings: []model.PortMapping{
-			{1234, 1234},
+			{1234, 1235},
 		},
 	}
 
@@ -55,7 +55,7 @@ func TestDeployment_Equals_True(t *testing.T) {
 			"ENV": "something",
 		},
 		PortMappings: []model.PortMapping{
-			{1234, 1234},
+			{1234, 1235},
 		},
 	}
 
@@ -70,10 +70,10 @@ func TestDeployment_Equals_False(t *testing.T) {
 			"tier": "frontend",
 		},
 		Environment: map[string]string{
-			"ENV": "something",
+			"env": "something",
 		},
 		PortMappings: []model.PortMapping{
-			{1234, 1234},
+			{1234, 1235},
 		},
 	}
 
@@ -92,13 +92,13 @@ func TestDeployment_Equals_False(t *testing.T) {
 	// Env mismatch
 	diffEnv := base
 	diffEnv.Environment = map[string]string{
-		"ENV": "something-else",
+		"env": "something-else",
 	}
 	require.False(t, base.Equals(diffEnv))
 
 	diffPortMappings := base
 	diffPortMappings.PortMappings = []model.PortMapping{
-		{1234, 1235},
+		{1234, 1236},
 	}
 	require.False(t, base.Equals(diffPortMappings))
 
@@ -113,7 +113,7 @@ func TestDeployment_Equals_False(t *testing.T) {
 	// Extra environment variable
 	diffExtraEnv := base
 	diffExtraEnv.Environment = map[string]string{
-		"ENV":  "something",
+		"env":  "something",
 		"MODE": "debug",
 	}
 	require.False(t, base.Equals(diffExtraEnv))
@@ -121,8 +121,8 @@ func TestDeployment_Equals_False(t *testing.T) {
 	// Extra environment variable
 	diffExtraPortMappings := base
 	diffExtraPortMappings.PortMappings = []model.PortMapping{
-		{1234, 1234},
 		{1234, 1235},
+		{1234, 1236},
 	}
 	require.False(t, base.Equals(diffExtraPortMappings))
 }

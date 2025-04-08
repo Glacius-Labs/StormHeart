@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO think filters of decorators
 type Pipeline struct {
 	mu         sync.Mutex
 	sources    map[string][]model.Deployment

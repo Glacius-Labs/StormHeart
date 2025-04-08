@@ -16,6 +16,7 @@ func NewDeployment(name, image string, opts DeploymentOptions) (Deployment, erro
 	if name == "" {
 		return Deployment{}, errors.New("deployment name cannot be empty")
 	}
+
 	if image == "" {
 		return Deployment{}, errors.New("deployment image cannot be empty")
 	}

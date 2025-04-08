@@ -3,8 +3,8 @@ package pipeline_test
 import (
 	"testing"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/pipeline"
+	"github.com/glacius-labs/StormHeart/internal/application/pipeline"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/stretchr/testify/require"
 )
 
