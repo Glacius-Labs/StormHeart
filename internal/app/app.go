@@ -15,7 +15,7 @@ type App struct {
 func (a *App) Start(ctx context.Context) error {
 	for _, w := range a.watchers {
 		go func(w watcher.Watcher) {
-			if err := w.Start(ctx); err != nil {
+			if err := w.Watch(ctx); err != nil {
 				if a.logger != nil {
 					a.logger.Error("Watcher exited with error", zap.Error(err))
 				}

@@ -34,7 +34,7 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		err := w.Start(ctx)
+		err := w.Watch(ctx)
 		assert.NoError(t, err)
 		close(done)
 	}()

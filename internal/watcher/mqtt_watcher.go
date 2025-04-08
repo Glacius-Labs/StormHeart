@@ -28,7 +28,7 @@ func NewMQTTWatcher(client mqtt.Client, topic, sourceName string, pushFunc PushF
 	}
 }
 
-func (w *MQTTWatcher) Start(ctx context.Context) error {
+func (w *MQTTWatcher) Watch(ctx context.Context) error {
 	if err := w.client.Connect(); err != nil {
 		return err
 	}

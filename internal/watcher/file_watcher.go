@@ -33,7 +33,7 @@ func NewFileWatcher(path, sourceName string, pushFunc PushFunc, logger *zap.Logg
 	}
 }
 
-func (w *FileWatcher) Start(ctx context.Context) error {
+func (w *FileWatcher) Watch(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err

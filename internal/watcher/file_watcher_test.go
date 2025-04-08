@@ -42,7 +42,7 @@ func TestFileWatcher_InitialLoad(t *testing.T) {
 	w := watcher.NewFileWatcher(filePath, "test-source", push, logger)
 
 	go func() {
-		_ = w.Start(ctx)
+		_ = w.Watch(ctx)
 	}()
 
 	time.Sleep(300 * time.Millisecond) // wait for debounce + push
@@ -86,7 +86,7 @@ func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
 	w := watcher.NewFileWatcher(filePath, "test-reload", push, logger)
 
 	go func() {
-		_ = w.Start(ctx)
+		_ = w.Watch(ctx)
 	}()
 
 	time.Sleep(300 * time.Millisecond) // initial load
@@ -131,7 +131,7 @@ func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
 	w := watcher.NewFileWatcher(filePath, "test-bad-json", push, logger)
 
 	go func() {
-		_ = w.Start(ctx)
+		_ = w.Watch(ctx)
 	}()
 
 	time.Sleep(300 * time.Millisecond) // wait for initial push
@@ -170,7 +170,7 @@ func TestFileWatcher_InvalidFilePath(t *testing.T) {
 	w := watcher.NewFileWatcher(tempDir, "invalid-path", push, logger)
 
 	go func() {
-		_ = w.Start(ctx) // let it run and fail internally
+		_ = w.Watch(ctx) // let it run and fail internally
 	}()
 
 	time.Sleep(300 * time.Millisecond)
@@ -188,7 +188,7 @@ func TestFileWatcher_NonExistentFile(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := w.Start(ctx)
+	err := w.Watch(ctx)
 	assert.Error(t, err)
 }
 
@@ -217,7 +217,7 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 		defer func() {
 			_ = recover() // suppress panic from pushFunc
 		}()
-		_ = w.Start(ctx)
+		_ = w.Watch(ctx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)
@@ -247,7 +247,7 @@ func TestFileWatcher_DebounceCancelsOnShutdown(t *testing.T) {
 	w := watcher.NewFileWatcher(filePath, "test-debounce-shutdown", push, logger)
 
 	go func() {
-		_ = w.Start(ctx)
+		_ = w.Watch(ctx)
 	}()
 
 	time.Sleep(200 * time.Millisecond) // Wait for initial load

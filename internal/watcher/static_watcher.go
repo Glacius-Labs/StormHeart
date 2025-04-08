@@ -28,7 +28,7 @@ func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger 
 	}
 }
 
-func (w *StaticWatcher) Start(ctx context.Context) error {
+func (w *StaticWatcher) Watch(ctx context.Context) error {
 	w.logger.Info("Pushing static deployments", zap.Int("count", len(w.deployments)))
 
 	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
