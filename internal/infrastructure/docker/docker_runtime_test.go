@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package runtime_test
+package docker_test
 
 import (
 	"strings"
