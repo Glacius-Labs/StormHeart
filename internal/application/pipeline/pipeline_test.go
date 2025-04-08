@@ -21,7 +21,6 @@ func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 	p := pipeline.NewPipeline(
 		targetFunc,
 		zaptest.NewLogger(t),
-		pipeline.NewDeduplicator(),
 	)
 
 	p.Push(context.Background(), "source1", []model.Deployment{
@@ -30,33 +29,6 @@ func TestPipeline_SinglePush_CallsTarget(t *testing.T) {
 
 	require.Len(t, called, 1)
 	require.Equal(t, "a", called[0].Name)
-}
-
-func TestPipeline_MultiSource_Deduplication(t *testing.T) {
-	var received []model.Deployment
-	targetFunc := func(ctx context.Context, deployments []model.Deployment) error {
-		received = deployments
-		return nil
-	}
-
-	p := pipeline.NewPipeline(
-		targetFunc,
-		zaptest.NewLogger(t),
-		pipeline.Deduplicator{},
-	)
-
-	ctx := context.Background()
-
-	p.Push(ctx, "file", []model.Deployment{
-		{Name: "worker", Image: "alpine"},
-	})
-
-	p.Push(ctx, "broker", []model.Deployment{
-		{Name: "worker", Image: "alpine"},
-		{Name: "db", Image: "pg"},
-	})
-
-	require.Len(t, received, 2)
 }
 
 func TestNewPipeline_PanicsOnNilTarget(t *testing.T) {
@@ -90,7 +62,6 @@ func TestPipeline_TargetError_IsHandled(t *testing.T) {
 	p := pipeline.NewPipeline(
 		targetFunc,
 		zaptest.NewLogger(t),
-		pipeline.Deduplicator{},
 	)
 
 	p.Push(context.Background(), "source1", []model.Deployment{
@@ -98,4 +69,34 @@ func TestPipeline_TargetError_IsHandled(t *testing.T) {
 	})
 
 	require.True(t, called, "target function should have been called despite error")
+}
+
+func TestPipeline_UseDecorator_IsCalled(t *testing.T) {
+	var decoratorCalled bool
+
+	targetFunc := func(ctx context.Context, deployments []model.Deployment) error {
+		return nil
+	}
+
+	p := pipeline.NewPipeline(
+		targetFunc,
+		zaptest.NewLogger(t),
+	)
+
+	p.Use(mockDecorator(&decoratorCalled))
+
+	p.Push(context.Background(), "source1", []model.Deployment{
+		{Name: "trigger", Image: "any"},
+	})
+
+	require.True(t, decoratorCalled, "decorator should have been called")
+}
+
+func mockDecorator(wasCalled *bool) pipeline.Decorator {
+	return func(next pipeline.TargetFunc) pipeline.TargetFunc {
+		return func(ctx context.Context, deployments []model.Deployment) error {
+			*wasCalled = true
+			return next(ctx, deployments)
+		}
+	}
 }

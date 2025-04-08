@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/glacius-labs/StormHeart/internal/application/pipeline"
@@ -9,7 +10,15 @@ import (
 )
 
 func TestDeduplicator_RemovesDuplicates(t *testing.T) {
-	d := pipeline.NewDeduplicator()
+	var received []model.Deployment
+
+	target := func(ctx context.Context, deployments []model.Deployment) error {
+		received = deployments
+		return nil
+	}
+
+	deduplicator := pipeline.Deduplicator()
+	decorated := deduplicator(target)
 
 	input := []model.Deployment{
 		{Name: "web", Image: "nginx"},
@@ -17,6 +26,12 @@ func TestDeduplicator_RemovesDuplicates(t *testing.T) {
 		{Name: "db", Image: "postgres"},
 	}
 
-	result := d.Apply(input)
-	require.Len(t, result, 2)
+	err := decorated(nil, input)
+	require.NoError(t, err)
+
+	require.Len(t, received, 2)
+	require.ElementsMatch(t, []model.Deployment{
+		{Name: "web", Image: "nginx"},
+		{Name: "db", Image: "postgres"},
+	}, received)
 }
