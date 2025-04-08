@@ -8,7 +8,6 @@ import (
 
 type Runtime interface {
 	Deploy(ctx context.Context, deployment model.Deployment) error
-	// TODO use only name
-	Remove(ctx context.Context, deployment model.Deployment) error
+	Remove(ctx context.Context, name string) error
 	List(ctx context.Context) ([]model.Deployment, error)
 }

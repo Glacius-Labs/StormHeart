@@ -35,12 +35,12 @@ func (m *MockRuntime) Deploy(ctx context.Context, deployment model.Deployment) e
 	return nil
 }
 
-func (m *MockRuntime) Remove(ctx context.Context, deployment model.Deployment) error {
-	if m.FailRemove[deployment.Name] {
-		return fmt.Errorf("simulated remove failure for %s", deployment.Name)
+func (m *MockRuntime) Remove(ctx context.Context, name string) error {
+	if m.FailRemove[name] {
+		return fmt.Errorf("simulated remove failure for %s", name)
 	}
 	for i, existing := range m.Active {
-		if existing.Name == deployment.Name {
+		if existing.Name == name {
 			m.Active = slices.Delete(m.Active, i, i+1)
 			return nil
 		}

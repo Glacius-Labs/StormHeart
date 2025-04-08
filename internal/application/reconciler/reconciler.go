@@ -65,7 +65,7 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) erro
 	var startErrs, stopErrs int
 
 	for _, d := range toStop {
-		if err := r.Runtime.Remove(ctx, d); err != nil {
+		if err := r.Runtime.Remove(ctx, d.Name); err != nil {
 			stopErrs++
 			r.Logger.Error(
 				"Failed to stop container",

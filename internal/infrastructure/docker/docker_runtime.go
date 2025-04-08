@@ -72,8 +72,8 @@ func (r *DockerRuntime) Deploy(ctx context.Context, deployment model.Deployment)
 	return nil
 }
 
-func (r *DockerRuntime) Remove(ctx context.Context, deployment model.Deployment) error {
-	return r.cli.ContainerRemove(ctx, deployment.Name, container.RemoveOptions{Force: true})
+func (r *DockerRuntime) Remove(ctx context.Context, name string) error {
+	return r.cli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 }
 
 func (r *DockerRuntime) List(ctx context.Context) ([]model.Deployment, error) {
