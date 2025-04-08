@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/glacius-labs/StormHeart/internal/app"
-	"github.com/glacius-labs/StormHeart/internal/mqtt"
-	"github.com/glacius-labs/StormHeart/internal/pipeline"
-	"github.com/glacius-labs/StormHeart/internal/reconciler"
-	"github.com/glacius-labs/StormHeart/internal/runtime"
-	"github.com/glacius-labs/StormHeart/internal/watcher"
+	"github.com/glacius-labs/StormHeart/internal/application/pipeline"
+	"github.com/glacius-labs/StormHeart/internal/application/reconciler"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/docker"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/file"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/mqtt"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/static"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +32,7 @@ func main() {
 
 	ctx := setupSignalContext(logger)
 
-	runtime, err := runtime.NewDockerRuntime()
+	runtime, err := docker.NewRuntime()
 
 	if err != nil {
 		logger.Fatal("Failed to create runtime", zap.Error(err))
@@ -48,7 +49,7 @@ func main() {
 		pipeline.NewDeduplicator(),
 	)
 
-	staticWatcher := watcher.NewStaticWatcher(
+	staticWatcher := static.NewWatcher(
 		staticDeployments,
 		pipeline.Push,
 		logger.With(zap.String("component", "watcher"), zap.String("source", "static")),
@@ -58,7 +59,7 @@ func main() {
 	mqttUrl := fmt.Sprintf("tcp://%s:%d", cfg.StormLink.Host, cfg.StormLink.Port)
 	mqttClient := mqtt.NewPahoClient(mqttUrl)
 
-	mqqtWatcher := watcher.NewMQTTWatcher(
+	mqqtWatcher := mqtt.NewWatcher(
 		mqttClient,
 		mqttTopic,
 		stormLinkSource,
@@ -76,7 +77,7 @@ func main() {
 		WithWatcher(mqqtWatcher)
 
 	for _, watcherConfig := range cfg.Watchers.Files {
-		fileWatcher := watcher.NewFileWatcher(
+		fileWatcher := file.NewWatcher(
 			watcherConfig.Path,
 			watcherConfig.Name,
 			pipeline.Push,

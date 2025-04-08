@@ -1,10 +1,11 @@
-package watcher
+package static
 
 import (
 	"context"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 	"go.uber.org/zap"
 )
 
@@ -12,11 +13,11 @@ const SourceNameStaticWatcher = "static"
 
 type StaticWatcher struct {
 	deployments []model.Deployment
-	pushFunc    PushFunc
+	pushFunc    watcher.PushFunc
 	logger      *zap.Logger
 }
 
-func NewStaticWatcher(deployments []model.Deployment, pushFunc PushFunc, logger *zap.Logger) *StaticWatcher {
+func NewWatcher(deployments []model.Deployment, pushFunc watcher.PushFunc, logger *zap.Logger) *StaticWatcher {
 	if logger == nil {
 		panic("StaticWatcher requires a non-nil logger")
 	}

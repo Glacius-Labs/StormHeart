@@ -1,4 +1,4 @@
-package runtime
+package docker
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 )
 
 const (
@@ -25,7 +25,7 @@ type DockerRuntime struct {
 	cli *client.Client
 }
 
-func NewDockerRuntime() (*DockerRuntime, error) {
+func NewRuntime() (*DockerRuntime, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
 	if err != nil {

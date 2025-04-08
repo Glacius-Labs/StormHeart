@@ -1,24 +1,24 @@
-package watcher
+package mqtt
 
 import (
 	"context"
 	"encoding/json"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/mqtt"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 	"go.uber.org/zap"
 )
 
 type MQTTWatcher struct {
-	client     mqtt.Client
+	client     Client
 	topic      string
 	sourceName string
-	pushFunc   PushFunc
+	pushFunc   watcher.PushFunc
 	logger     *zap.Logger
 }
 
-func NewMQTTWatcher(client mqtt.Client, topic, sourceName string, pushFunc PushFunc, logger *zap.Logger) *MQTTWatcher {
+func NewWatcher(client Client, topic, sourceName string, pushFunc watcher.PushFunc, logger *zap.Logger) *MQTTWatcher {
 	return &MQTTWatcher{
 		client:     client,
 		topic:      topic,

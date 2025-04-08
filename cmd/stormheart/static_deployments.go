@@ -1,6 +1,6 @@
 package main
 
-import "github.com/glacius-labs/StormHeart/internal/model"
+import "github.com/glacius-labs/StormHeart/internal/core/model"
 
 var staticDeployments = []model.Deployment{
 	{

@@ -3,7 +3,7 @@ package pipeline
 import (
 	"slices"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 )
 
 type Deduplicator struct{}

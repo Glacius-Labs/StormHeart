@@ -1,4 +1,4 @@
-package watcher
+package file
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
@@ -16,11 +17,11 @@ import (
 type FileWatcher struct {
 	path       string
 	sourceName string
-	pushFunc   PushFunc
+	pushFunc   watcher.PushFunc
 	logger     *zap.Logger
 }
 
-func NewFileWatcher(path, sourceName string, pushFunc PushFunc, logger *zap.Logger) *FileWatcher {
+func NewWatcher(path, sourceName string, pushFunc watcher.PushFunc, logger *zap.Logger) *FileWatcher {
 	if logger == nil {
 		panic("FileWatcher requires a non-nil logger")
 	}

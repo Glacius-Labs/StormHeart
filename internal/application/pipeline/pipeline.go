@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"go.uber.org/zap"
 )
 

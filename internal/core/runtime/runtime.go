@@ -3,7 +3,7 @@ package runtime
 import (
 	"context"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 )
 
 type Runtime interface {

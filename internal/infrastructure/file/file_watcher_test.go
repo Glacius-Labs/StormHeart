@@ -1,4 +1,4 @@
-package watcher_test
+package file_test
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/watcher"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/file"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 )
@@ -39,7 +39,7 @@ func TestFileWatcher_InitialLoad(t *testing.T) {
 	defer cancel()
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(filePath, "test-source", push, logger)
+	w := file.NewWatcher(filePath, "test-source", push, logger)
 
 	go func() {
 		_ = w.Watch(ctx)
@@ -83,7 +83,7 @@ func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
 	defer cancel()
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(filePath, "test-reload", push, logger)
+	w := file.NewWatcher(filePath, "test-reload", push, logger)
 
 	go func() {
 		_ = w.Watch(ctx)
@@ -128,7 +128,7 @@ func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
 	defer cancel()
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(filePath, "test-bad-json", push, logger)
+	w := file.NewWatcher(filePath, "test-bad-json", push, logger)
 
 	go func() {
 		_ = w.Watch(ctx)
@@ -152,7 +152,7 @@ func TestFileWatcher_PanicsOnNilLogger(t *testing.T) {
 		}
 	}()
 
-	_ = watcher.NewFileWatcher("somefile.json", "source", func(context.Context, string, []model.Deployment) {}, nil)
+	_ = file.NewWatcher("somefile.json", "source", func(context.Context, string, []model.Deployment) {}, nil)
 }
 
 func TestFileWatcher_InvalidFilePath(t *testing.T) {
@@ -167,7 +167,7 @@ func TestFileWatcher_InvalidFilePath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	w := watcher.NewFileWatcher(tempDir, "invalid-path", push, logger)
+	w := file.NewWatcher(tempDir, "invalid-path", push, logger)
 
 	go func() {
 		_ = w.Watch(ctx) // let it run and fail internally
@@ -183,7 +183,7 @@ func TestFileWatcher_NonExistentFile(t *testing.T) {
 	missingPath := filepath.Join(tempDir, "not-there.json")
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(missingPath, "missing", func(context.Context, string, []model.Deployment) {}, logger)
+	w := file.NewWatcher(missingPath, "missing", func(context.Context, string, []model.Deployment) {}, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -209,7 +209,7 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	defer cancel()
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(filePath, "fail-push", push, logger)
+	w := file.NewWatcher(filePath, "fail-push", push, logger)
 
 	// Watcher should not panic, but the pushFunc will
 	// So we use recover internally in a safe goroutine
@@ -244,7 +244,7 @@ func TestFileWatcher_DebounceCancelsOnShutdown(t *testing.T) {
 	defer cancel()
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewFileWatcher(filePath, "test-debounce-shutdown", push, logger)
+	w := file.NewWatcher(filePath, "test-debounce-shutdown", push, logger)
 
 	go func() {
 		_ = w.Watch(ctx)

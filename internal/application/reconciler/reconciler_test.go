@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/reconciler"
-	"github.com/glacius-labs/StormHeart/internal/runtime"
+	"github.com/glacius-labs/StormHeart/internal/application/reconciler"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
 func TestReconciler_DeploysMissingContainers(t *testing.T) {
-	r := runtime.NewMockRuntime(nil)
+	r := mock.NewRuntime(nil)
 	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
@@ -28,7 +28,7 @@ func TestReconciler_DeploysMissingContainers(t *testing.T) {
 
 func TestReconciler_RemovesObsoleteContainers(t *testing.T) {
 	initial := []model.Deployment{{Name: "stale", Image: "old"}}
-	r := runtime.NewMockRuntime(initial)
+	r := mock.NewRuntime(initial)
 	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
@@ -39,7 +39,7 @@ func TestReconciler_RemovesObsoleteContainers(t *testing.T) {
 
 func TestReconciler_RestartsChangedDeployment(t *testing.T) {
 	initial := []model.Deployment{{Name: "api", Image: "v1"}}
-	r := runtime.NewMockRuntime(initial)
+	r := mock.NewRuntime(initial)
 	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
@@ -51,7 +51,7 @@ func TestReconciler_RestartsChangedDeployment(t *testing.T) {
 
 func TestReconciler_DoesNothingWhenInSync(t *testing.T) {
 	aligned := []model.Deployment{{Name: "cache", Image: "redis"}}
-	r := runtime.NewMockRuntime(aligned)
+	r := mock.NewRuntime(aligned)
 	logger := zaptest.NewLogger(t)
 	rec := reconciler.NewReconciler(r, logger)
 
@@ -61,7 +61,7 @@ func TestReconciler_DoesNothingWhenInSync(t *testing.T) {
 }
 
 func TestReconciler_DeployFailureIsReported(t *testing.T) {
-	r := &runtime.MockRuntime{
+	r := &mock.MockRuntime{
 		FailDeploy: map[string]bool{"web": true},
 	}
 	logger := zaptest.NewLogger(t)
@@ -75,7 +75,7 @@ func TestReconciler_DeployFailureIsReported(t *testing.T) {
 }
 
 func TestReconciler_RemoveFailureIsReported(t *testing.T) {
-	r := &runtime.MockRuntime{
+	r := &mock.MockRuntime{
 		Active:     []model.Deployment{{Name: "stale", Image: "busybox"}},
 		FailRemove: map[string]bool{"stale": true},
 	}
@@ -87,7 +87,7 @@ func TestReconciler_RemoveFailureIsReported(t *testing.T) {
 }
 
 func TestReconciler_ListFailureIsReported(t *testing.T) {
-	r := &runtime.MockRuntime{
+	r := &mock.MockRuntime{
 		FailList: true,
 	}
 	logger := zaptest.NewLogger(t)
@@ -115,6 +115,6 @@ func TestNewReconciler_PanicsOnNilLogger(t *testing.T) {
 			t.Fatal("expected panic on nil Logger, got none")
 		}
 	}()
-	r := runtime.NewMockRuntime(nil)
+	r := mock.NewRuntime(nil)
 	_ = reconciler.NewReconciler(r, nil)
 }

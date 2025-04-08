@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/glacius-labs/StormHeart/internal/watcher"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 	"go.uber.org/zap"
 )
 

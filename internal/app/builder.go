@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 
-	"github.com/glacius-labs/StormHeart/internal/pipeline"
-	"github.com/glacius-labs/StormHeart/internal/reconciler"
-	"github.com/glacius-labs/StormHeart/internal/runtime"
-	"github.com/glacius-labs/StormHeart/internal/watcher"
+	"github.com/glacius-labs/StormHeart/internal/application/pipeline"
+	"github.com/glacius-labs/StormHeart/internal/application/reconciler"
+	"github.com/glacius-labs/StormHeart/internal/core/runtime"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 	"go.uber.org/zap"
 )
 

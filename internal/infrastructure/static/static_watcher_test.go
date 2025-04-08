@@ -1,12 +1,12 @@
-package watcher_test
+package static_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/watcher"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/static"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 )
@@ -27,7 +27,7 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 	}
 
 	logger := zaptest.NewLogger(t)
-	w := watcher.NewStaticWatcher(expected, push, logger)
+	w := static.NewWatcher(expected, push, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -45,7 +45,7 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 
 	// Validate pushFunc
 	assert.True(t, called, "pushFunc should have been called")
-	assert.Equal(t, watcher.SourceNameStaticWatcher, gotSource)
+	assert.Equal(t, static.SourceNameStaticWatcher, gotSource)
 	assert.Equal(t, expected, gotDeployments)
 
 	// Now cancel context to shut down watcher
@@ -62,5 +62,5 @@ func TestStaticWatcher_PanicsOnNilLogger(t *testing.T) {
 		}
 	}()
 
-	_ = watcher.NewStaticWatcher(nil, func(context.Context, string, []model.Deployment) {}, nil)
+	_ = static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, nil)
 }

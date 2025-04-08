@@ -1,11 +1,11 @@
-package runtime
+package mock
 
 import (
 	"context"
 	"fmt"
 	"slices"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
 )
 
 type MockRuntime struct {
@@ -15,7 +15,7 @@ type MockRuntime struct {
 	FailList   bool
 }
 
-func NewMockRuntime(initial []model.Deployment) *MockRuntime {
+func NewRuntime(initial []model.Deployment) *MockRuntime {
 	return &MockRuntime{
 		Active: append([]model.Deployment{}, initial...),
 	}

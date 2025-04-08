@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/glacius-labs/StormHeart/internal/model"
-	"github.com/glacius-labs/StormHeart/internal/runtime"
+	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/core/runtime"
 	"go.uber.org/zap"
 )
 
