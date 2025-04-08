@@ -46,6 +46,7 @@ func TestReconciler_RestartsChangedDeployment(t *testing.T) {
 	desired := []model.Deployment{{Name: "api", Image: "v2"}}
 	err := rec.Apply(context.Background(), desired)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(r.Active))
 	require.Equal(t, "v2", r.Active[0].Image)
 }
 
