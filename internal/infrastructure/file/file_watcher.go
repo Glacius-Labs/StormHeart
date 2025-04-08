@@ -15,22 +15,22 @@ import (
 )
 
 type FileWatcher struct {
-	path       string
-	sourceName string
-	pushFunc   watcher.PushFunc
-	logger     *zap.Logger
+	path        string
+	sourceName  string
+	handlerFunc watcher.HandlerFunc
+	logger      *zap.Logger
 }
 
-func NewWatcher(path, sourceName string, pushFunc watcher.PushFunc, logger *zap.Logger) *FileWatcher {
+func NewWatcher(path, sourceName string, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *FileWatcher {
 	if logger == nil {
 		panic("FileWatcher requires a non-nil logger")
 	}
 
 	return &FileWatcher{
-		path:       path,
-		sourceName: sourceName,
-		pushFunc:   pushFunc,
-		logger:     logger,
+		path:        path,
+		sourceName:  sourceName,
+		handlerFunc: handlerFunc,
+		logger:      logger,
 	}
 }
 
@@ -104,7 +104,7 @@ func (w *FileWatcher) Watch(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	w.pushFunc(shutdownCtx, w.sourceName, []model.Deployment{})
+	w.handlerFunc(shutdownCtx, w.sourceName, []model.Deployment{})
 
 	return nil
 }
@@ -126,7 +126,7 @@ func (w *FileWatcher) loadAndPush(ctx context.Context) error {
 		zap.String("path", w.path),
 	)
 
-	w.pushFunc(ctx, w.sourceName, deployments)
+	w.handlerFunc(ctx, w.sourceName, deployments)
 
 	return nil
 }

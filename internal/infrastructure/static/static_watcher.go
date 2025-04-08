@@ -13,18 +13,18 @@ const SourceNameStaticWatcher = "static"
 
 type StaticWatcher struct {
 	deployments []model.Deployment
-	pushFunc    watcher.PushFunc
+	handlerFunc watcher.HandlerFunc
 	logger      *zap.Logger
 }
 
-func NewWatcher(deployments []model.Deployment, pushFunc watcher.PushFunc, logger *zap.Logger) *StaticWatcher {
+func NewWatcher(deployments []model.Deployment, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *StaticWatcher {
 	if logger == nil {
 		panic("StaticWatcher requires a non-nil logger")
 	}
 
 	return &StaticWatcher{
 		deployments: deployments,
-		pushFunc:    pushFunc,
+		handlerFunc: handlerFunc,
 		logger:      logger,
 	}
 }
@@ -32,14 +32,14 @@ func NewWatcher(deployments []model.Deployment, pushFunc watcher.PushFunc, logge
 func (w *StaticWatcher) Watch(ctx context.Context) error {
 	w.logger.Info("Pushing static deployments", zap.Int("count", len(w.deployments)))
 
-	w.pushFunc(ctx, SourceNameStaticWatcher, w.deployments)
+	w.handlerFunc(ctx, SourceNameStaticWatcher, w.deployments)
 
 	<-ctx.Done()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	w.pushFunc(shutdownCtx, SourceNameStaticWatcher, []model.Deployment{})
+	w.handlerFunc(shutdownCtx, SourceNameStaticWatcher, []model.Deployment{})
 
 	w.logger.Info("Static watcher shutdown")
 

@@ -48,7 +48,7 @@ func TestFileWatcher_InitialLoad(t *testing.T) {
 	time.Sleep(300 * time.Millisecond) // wait for debounce + push
 
 	mu.Lock()
-	assert.True(t, called, "pushFunc should have been called")
+	assert.True(t, called, "handlerFunc should have been called")
 	assert.Len(t, received, 1)
 	assert.Equal(t, "test", received[0].Name)
 	mu.Unlock()
@@ -97,7 +97,7 @@ func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
 	time.Sleep(400 * time.Millisecond) // debounce + reload
 
 	mu.Lock()
-	assert.GreaterOrEqual(t, callCount, 2, "pushFunc should have been called at least twice")
+	assert.GreaterOrEqual(t, callCount, 2, "handlerFunc should have been called at least twice")
 	assert.Contains(t, names, "one")
 	assert.Contains(t, names, "two")
 	mu.Unlock()
@@ -141,7 +141,7 @@ func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
 	time.Sleep(400 * time.Millisecond) // wait for debounce + failed reload
 
 	mu.Lock()
-	assert.Equal(t, 1, callCount, "pushFunc should not be called again after invalid JSON")
+	assert.Equal(t, 1, callCount, "handlerFunc should not be called again after invalid JSON")
 	mu.Unlock()
 }
 
@@ -175,7 +175,7 @@ func TestFileWatcher_InvalidFilePath(t *testing.T) {
 
 	time.Sleep(300 * time.Millisecond)
 
-	assert.False(t, called, "pushFunc should not have been called for invalid path")
+	assert.False(t, called, "handlerFunc should not have been called for invalid path")
 }
 
 func TestFileWatcher_NonExistentFile(t *testing.T) {
@@ -192,7 +192,7 @@ func TestFileWatcher_NonExistentFile(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
+func TestFileWatcher_handlerFuncFailsButContinues(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "deployments.json")
 
@@ -200,7 +200,7 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	err := os.WriteFile(filePath, []byte(data), 0644)
 	assert.NoError(t, err)
 
-	// broken pushFunc: panics internally
+	// broken handlerFunc: panics internally
 	push := func(ctx context.Context, source string, deployments []model.Deployment) {
 		panic("simulated push failure")
 	}
@@ -211,11 +211,11 @@ func TestFileWatcher_PushFuncFailsButContinues(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	w := file.NewWatcher(filePath, "fail-push", push, logger)
 
-	// Watcher should not panic, but the pushFunc will
+	// Watcher should not panic, but the handlerFunc will
 	// So we use recover internally in a safe goroutine
 	go func() {
 		defer func() {
-			_ = recover() // suppress panic from pushFunc
+			_ = recover() // suppress panic from handlerFunc
 		}()
 		_ = w.Watch(ctx)
 	}()

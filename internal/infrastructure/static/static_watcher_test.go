@@ -39,12 +39,12 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 		close(done)
 	}()
 
-	// Wait a little to ensure pushFunc is called
+	// Wait a little to ensure handlerFunc is called
 	// (Normally this is instant, but tiny wait is safe)
 	<-time.After(50 * time.Millisecond)
 
-	// Validate pushFunc
-	assert.True(t, called, "pushFunc should have been called")
+	// Validate handlerFunc
+	assert.True(t, called, "handlerFunc should have been called")
 	assert.Equal(t, static.SourceNameStaticWatcher, gotSource)
 	assert.Equal(t, expected, gotDeployments)
 

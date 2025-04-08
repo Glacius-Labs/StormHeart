@@ -11,20 +11,20 @@ import (
 )
 
 type MQTTWatcher struct {
-	client     Client
-	topic      string
-	sourceName string
-	pushFunc   watcher.PushFunc
-	logger     *zap.Logger
+	client      Client
+	topic       string
+	sourceName  string
+	handlerFunc watcher.HandlerFunc
+	logger      *zap.Logger
 }
 
-func NewWatcher(client Client, topic, sourceName string, pushFunc watcher.PushFunc, logger *zap.Logger) *MQTTWatcher {
+func NewWatcher(client Client, topic, sourceName string, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *MQTTWatcher {
 	return &MQTTWatcher{
-		client:     client,
-		topic:      topic,
-		sourceName: sourceName,
-		pushFunc:   pushFunc,
-		logger:     logger,
+		client:      client,
+		topic:       topic,
+		sourceName:  sourceName,
+		handlerFunc: handlerFunc,
+		logger:      logger,
 	}
 }
 
@@ -49,7 +49,7 @@ func (w *MQTTWatcher) Watch(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	w.pushFunc(shutdownCtx, w.sourceName, []model.Deployment{})
+	w.handlerFunc(shutdownCtx, w.sourceName, []model.Deployment{})
 
 	return nil
 }
@@ -63,5 +63,5 @@ func (w *MQTTWatcher) handleMessage(ctx context.Context, payload []byte) {
 		return
 	}
 
-	w.pushFunc(ctx, w.sourceName, deployments)
+	w.handlerFunc(ctx, w.sourceName, deployments)
 }
