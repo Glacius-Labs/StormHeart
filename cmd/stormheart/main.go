@@ -43,15 +43,16 @@ func main() {
 		logger.With(zap.String("component", "reconciler")),
 	)
 
-	pipeline := pipeline.NewPipeline(
+	pl := pipeline.NewPipeline(
 		reconciler.Apply,
 		logger.With(zap.String("component", "pipeline")),
-		pipeline.NewDeduplicator(),
 	)
+
+	pl.Use(pipeline.Deduplicator())
 
 	staticWatcher := static.NewWatcher(
 		staticDeployments,
-		pipeline.Push,
+		pl.Push,
 		logger.With(zap.String("component", "watcher"), zap.String("source", "static")),
 	)
 
@@ -63,7 +64,7 @@ func main() {
 		mqttClient,
 		mqttTopic,
 		stormLinkSource,
-		pipeline.Push,
+		pl.Push,
 		logger.With(zap.String("component", "watcher"), zap.String("source", "mqtt")),
 	)
 
@@ -72,7 +73,7 @@ func main() {
 		WithLogger(logger).
 		WithRuntime(runtime).
 		WithReconciler(reconciler).
-		WithPipeline(pipeline).
+		WithPipeline(pl).
 		WithWatcher(staticWatcher).
 		WithWatcher(mqqtWatcher)
 
@@ -80,7 +81,7 @@ func main() {
 		fileWatcher := file.NewWatcher(
 			watcherConfig.Path,
 			watcherConfig.Name,
-			pipeline.Push,
+			pl.Push,
 			logger.With(zap.String("component", "watcher"), zap.String("source", watcherConfig.Name)),
 		)
 
