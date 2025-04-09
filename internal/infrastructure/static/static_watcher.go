@@ -2,7 +2,6 @@ package static
 
 import (
 	"context"
-	"time"
 
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/watcher"
@@ -44,13 +43,8 @@ func (w *StaticWatcher) Watch(ctx context.Context) error {
 
 	<-ctx.Done()
 
-	w.logger.Info("Initiate shutdown")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	w.handlerFunc(shutdownCtx, SourceNameStaticWatcher, []model.Deployment{})
-
+	w.logger.Info("Initiating shutdown")
+	watcher.PushEmptyDeployments(w.handlerFunc, SourceNameStaticWatcher)
 	w.logger.Info("Shutdown complete")
 
 	return nil
