@@ -96,6 +96,7 @@ func TestDeployment_Equals_False(t *testing.T) {
 	}
 	require.False(t, base.Equals(diffEnv))
 
+	// PortMappings mismatch
 	diffPortMappings := base
 	diffPortMappings.PortMappings = []model.PortMapping{
 		{1234, 1236},
@@ -118,7 +119,7 @@ func TestDeployment_Equals_False(t *testing.T) {
 	}
 	require.False(t, base.Equals(diffExtraEnv))
 
-	// Extra environment variable
+	// Extra port mapping
 	diffExtraPortMappings := base
 	diffExtraPortMappings.PortMappings = []model.PortMapping{
 		{1234, 1235},
