@@ -8,6 +8,7 @@ import (
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/static"
 	"github.com/stretchr/testify/assert"
+
 	"go.uber.org/zap/zaptest"
 )
 
@@ -43,24 +44,29 @@ func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
 	// (Normally this is instant, but tiny wait is safe)
 	<-time.After(50 * time.Millisecond)
 
-	// Validate handlerFunc
 	assert.True(t, called, "handlerFunc should have been called")
 	assert.Equal(t, static.SourceNameStaticWatcher, gotSource)
 	assert.Equal(t, expected, gotDeployments)
 
-	// Now cancel context to shut down watcher
 	cancel()
 
-	// Wait for Start(ctx) to return
 	<-done
 }
 
-func TestStaticWatcher_PanicsOnNilLogger(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on nil logger, but got none")
-		}
-	}()
+func TestStaticWatcher_NewWatcher_CreatesEmptyCollectionOnNilDeployments(t *testing.T) {
+	assert.NotPanics(t, func() {
+		static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, zaptest.NewLogger(t))
+	})
+}
 
-	_ = static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, nil)
+func TestStaticWatcher_NewWatcher_PanicsOnNilHandlerFunc(t *testing.T) {
+	assert.Panics(t, func() {
+		static.NewWatcher(nil, nil, zaptest.NewLogger(t))
+	})
+}
+
+func TestStaticWatcher_NewWatcher_PanicsOnNilLogger(t *testing.T) {
+	assert.Panics(t, func() {
+		static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, nil)
+	})
 }
