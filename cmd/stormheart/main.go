@@ -58,7 +58,7 @@ func main() {
 
 	mqttTopic := fmt.Sprintf("stormfleet/%s/deployments", cfg.Identifier)
 	mqttUrl := fmt.Sprintf("tcp://%s:%d", cfg.StormLink.Host, cfg.StormLink.Port)
-	mqttClient := mqtt.NewPahoClient(mqttUrl)
+	mqttClient := mqtt.NewPahoClient(cfg.Identifier, mqttUrl)
 
 	mqqtWatcher := mqtt.NewWatcher(
 		mqttClient,

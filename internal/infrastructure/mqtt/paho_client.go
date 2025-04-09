@@ -10,7 +10,15 @@ type PahoClient struct {
 	client paho.Client
 }
 
-func NewPahoClient(brokerURL string) *PahoClient {
+func NewPahoClient(id, brokerURL string) *PahoClient {
+	if id == "" {
+		panic("PahoClient requires a non-empty id")
+	}
+
+	if brokerURL == "" {
+		panic("PahoClient requires a non-empty broker url")
+	}
+
 	opts := paho.NewClientOptions().
 		AddBroker(brokerURL).
 		SetClientID("stormlink").
@@ -28,11 +36,12 @@ func (p *PahoClient) Connect() error {
 	return token.Error()
 }
 
-func (p *PahoClient) Subscribe(ctx context.Context, topic string, callback MessageHandler) error {
+func (p *PahoClient) Subscribe(ctx context.Context, topic string, handler MessageHandler) error {
 	token := p.client.Subscribe(topic, 1, func(client paho.Client, msg paho.Message) {
-		callback(ctx, msg.Payload())
+		handler(ctx, msg.Payload())
 	})
 	token.Wait()
+
 	return token.Error()
 }
 

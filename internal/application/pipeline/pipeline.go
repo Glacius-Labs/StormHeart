@@ -48,14 +48,14 @@ func (p *Pipeline) Push(ctx context.Context, source string, deployments []model.
 		combined = append(combined, ds...)
 	}
 
+	if err := p.targetFunc(ctx, combined); err != nil {
+		p.logger.Error("Target function failed", zap.Error(err))
+	}
+
 	p.mu.Unlock()
 
 	p.logger.Info("Pipeline push processed",
 		zap.String("source", source),
 		zap.Int("inputCount", len(deployments)),
 	)
-
-	if err := p.targetFunc(ctx, combined); err != nil {
-		p.logger.Error("Target function failed", zap.Error(err))
-	}
 }

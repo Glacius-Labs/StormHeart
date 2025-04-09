@@ -3,7 +3,6 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/watcher"
@@ -19,6 +18,26 @@ type MQTTWatcher struct {
 }
 
 func NewWatcher(client Client, topic, sourceName string, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *MQTTWatcher {
+	if client == nil {
+		panic("MQTTWatcher requires a non-nil client")
+	}
+
+	if topic == "" {
+		panic("MQTTWatcher requires a non-empty topic")
+	}
+
+	if sourceName == "" {
+		panic("MQTTWatcher requires a non-empty source name")
+	}
+
+	if handlerFunc == nil {
+		panic("MQTTWatcher requires a non-nil handler func")
+	}
+
+	if logger == nil {
+		panic("MQTTWatcher requires a non-nil logger")
+	}
+
 	return &MQTTWatcher{
 		client:      client,
 		topic:       topic,
@@ -43,13 +62,12 @@ func (w *MQTTWatcher) Watch(ctx context.Context) error {
 
 	<-ctx.Done()
 
-	w.logger.Info("Context canceled, disconnecting MQTT client")
+	w.logger.Info("Initiating shutdown")
+
 	w.client.Disconnect()
+	watcher.PushEmptyDeployments(w.handlerFunc, w.sourceName)
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	w.handlerFunc(shutdownCtx, w.sourceName, []model.Deployment{})
+	w.logger.Info("Shutdown complete")
 
 	return nil
 }

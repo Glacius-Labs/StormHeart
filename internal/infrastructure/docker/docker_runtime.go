@@ -39,7 +39,7 @@ func NewRuntime() (*DockerRuntime, error) {
 	_, err = cli.Ping(context.Background())
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while pinging via docker cli: %w", err)
 	}
 
 	return &DockerRuntime{cli: cli}, nil
