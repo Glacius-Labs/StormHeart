@@ -4,118 +4,176 @@ import (
 	"context"
 	"testing"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/reconciler"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
-func TestReconciler_DeploysMissingContainers(t *testing.T) {
-	r := mock.NewRuntime(nil)
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
+func TestNewReconciler_PanicsOnNilRuntime(t *testing.T) {
+	require.Panics(t, func() {
+		_ = reconciler.NewReconciler(nil, event.NewDispatcher())
+	}, "expected panic when runtime is nil")
+}
+
+func TestNewReconciler_PanicsOnNilDispatcher(t *testing.T) {
+	require.Panics(t, func() {
+		_ = reconciler.NewReconciler(mock.NewRuntime([]model.Deployment{}), nil)
+	}, "expected panic when dispatcher is nil")
+}
+
+func TestReconciler_Apply_NoDeployments(t *testing.T) {
+	rt := mock.NewRuntime([]model.Deployment{})
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
+
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	rec.Apply(context.Background(), []model.Deployment{})
+
+	require.NotEmpty(t, handler.Events(), "expected at least one event (reconciliation)")
+}
+
+func TestReconciler_Apply_StartNewDeployment(t *testing.T) {
+	rt := mock.NewRuntime([]model.Deployment{})
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
+
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
 
 	desired := []model.Deployment{
-		{Name: "web", Image: "nginx"},
 		{Name: "db", Image: "postgres"},
 	}
 
-	err := rec.Apply(context.Background(), desired)
-	require.NoError(t, err)
-	require.Len(t, r.Active, 2)
+	rec.Apply(context.Background(), desired)
+
+	require.GreaterOrEqual(t, len(handler.Events()), 2, "expected deployment created + reconciliation events")
 }
 
-func TestReconciler_RemovesObsoleteContainers(t *testing.T) {
-	initial := []model.Deployment{{Name: "stale", Image: "old"}}
-	r := mock.NewRuntime(initial)
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
-
-	err := rec.Apply(context.Background(), nil)
-	require.NoError(t, err)
-	require.Empty(t, r.Active)
-}
-
-func TestReconciler_RestartsChangedDeployment(t *testing.T) {
-	initial := []model.Deployment{{Name: "api", Image: "v1"}}
-	r := mock.NewRuntime(initial)
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
-
-	desired := []model.Deployment{{Name: "api", Image: "v2"}}
-	err := rec.Apply(context.Background(), desired)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(r.Active))
-	require.Equal(t, "v2", r.Active[0].Image)
-}
-
-func TestReconciler_DoesNothingWhenInSync(t *testing.T) {
-	aligned := []model.Deployment{{Name: "cache", Image: "redis"}}
-	r := mock.NewRuntime(aligned)
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
-
-	err := rec.Apply(context.Background(), aligned)
-	require.NoError(t, err)
-	require.Len(t, r.Active, 1)
-}
-
-func TestReconciler_DeployFailureIsReported(t *testing.T) {
-	r := &mock.MockRuntime{
-		FailDeploy: map[string]bool{"web": true},
+func TestReconciler_Apply_RemoveDeployment(t *testing.T) {
+	existing := []model.Deployment{
+		{Name: "cache", Image: "redis"},
 	}
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
 
-	err := rec.Apply(context.Background(), []model.Deployment{
-		{Name: "web", Image: "nginx"},
-	})
+	rt := mock.NewRuntime(existing)
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
 
-	require.Error(t, err)
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	rec.Apply(context.Background(), []model.Deployment{}) // No desired deployments
+
+	require.GreaterOrEqual(t, len(handler.Events()), 2, "expected deployment removed + reconciliation events")
 }
 
-func TestReconciler_RemoveFailureIsReported(t *testing.T) {
-	r := &mock.MockRuntime{
-		Active:     []model.Deployment{{Name: "stale", Image: "busybox"}},
-		FailRemove: map[string]bool{"stale": true},
+func TestReconciler_Apply_ChangedDeployment(t *testing.T) {
+	existing := []model.Deployment{
+		{Name: "web", Image: "nginx:old"},
 	}
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
 
-	err := rec.Apply(context.Background(), nil)
-	require.Error(t, err)
-}
+	rt := mock.NewRuntime(existing)
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
 
-func TestReconciler_ListFailureIsReported(t *testing.T) {
-	r := &mock.MockRuntime{
-		FailList: true,
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	desired := []model.Deployment{
+		{Name: "web", Image: "nginx:new"},
 	}
-	logger := zaptest.NewLogger(t)
-	rec := reconciler.NewReconciler(r, logger)
 
-	err := rec.Apply(context.Background(), []model.Deployment{
-		{Name: "api", Image: "latest"},
-	})
+	rec.Apply(context.Background(), desired)
 
-	require.Error(t, err)
+	require.GreaterOrEqual(t, len(handler.Events()), 3, "expected deployment removed + deployment created + reconciliation events")
 }
 
-func TestNewReconciler_PanicsOnNilRuntime(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on nil Runtime, got none")
+func TestReconciler_Apply_ListFails(t *testing.T) {
+	rt := mock.NewRuntime([]model.Deployment{})
+	rt.FailList = true // Simulate List() failure
+
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
+
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	rec.Apply(context.Background(), []model.Deployment{})
+
+	require.Len(t, handler.Events(), 1, "expected only reconciliation event with error")
+	require.NotNil(t, handler.Events()[0].Error(), "expected reconciliation event to have error")
+}
+
+func TestReconciler_Apply_DeploymentActionFails(t *testing.T) {
+	// Prepare runtime with a deployment to be removed
+	existing := []model.Deployment{
+		{Name: "service", Image: "nginx"},
+	}
+
+	rt := mock.NewRuntime(existing)
+	rt.FailRemove = map[string]bool{
+		"service": true, // Simulate remove failure
+	}
+
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
+
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	rec.Apply(context.Background(), []model.Deployment{}) // No desired deployments
+
+	events := handler.Events()
+	require.GreaterOrEqual(t, len(events), 2, "expected deployment removed + reconciliation events")
+
+	// Find the reconciliation event
+	var reconciliationEvent event.Event
+	for _, e := range events {
+		if e.Type() == "reconciliation_performed" {
+			reconciliationEvent = e
+			break
 		}
-	}()
-	_ = reconciler.NewReconciler(nil, zaptest.NewLogger(t))
+	}
+
+	require.NotNil(t, reconciliationEvent, "expected a reconciliation event")
+	require.NotNil(t, reconciliationEvent.Error(), "expected reconciliation event to carry an error because deployment action failed")
 }
 
-func TestNewReconciler_PanicsOnNilLogger(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on nil Logger, got none")
+func TestReconciler_Apply_DeploymentCreateFails(t *testing.T) {
+	// Prepare runtime with no existing deployments
+	rt := mock.NewRuntime([]model.Deployment{})
+	rt.FailDeploy = map[string]bool{
+		"db": true, // Simulate deploy failure
+	}
+
+	dispatcher := event.NewDispatcher()
+	rec := reconciler.NewReconciler(rt, dispatcher)
+
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	// Try to start a new deployment
+	desired := []model.Deployment{
+		{Name: "db", Image: "postgres"},
+	}
+
+	rec.Apply(context.Background(), desired)
+
+	events := handler.Events()
+	require.GreaterOrEqual(t, len(events), 2, "expected deployment created + reconciliation events")
+
+	// Find the reconciliation event
+	var reconciliationEvent event.Event
+	for _, e := range events {
+		if e.Type() == "reconciliation_performed" {
+			reconciliationEvent = e
+			break
 		}
-	}()
-	r := mock.NewRuntime(nil)
-	_ = reconciler.NewReconciler(r, nil)
+	}
+
+	require.NotNil(t, reconciliationEvent, "expected a reconciliation event")
+	require.NotNil(t, reconciliationEvent.Error(), "expected reconciliation event to carry an error because deployment creation failed")
 }

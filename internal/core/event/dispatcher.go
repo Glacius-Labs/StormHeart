@@ -1,32 +1,33 @@
 package event
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 type Dispatcher struct {
-	mu    sync.Mutex
-	sinks []EventSink
+	mu       sync.Mutex
+	handlers []Handler
 }
 
 func NewDispatcher() *Dispatcher {
 	return &Dispatcher{
-		sinks: make([]EventSink, 0),
+		handlers: make([]Handler, 0),
 	}
 }
 
-func (d *Dispatcher) Register(sink EventSink) {
+func (d *Dispatcher) Register(handler Handler) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.sinks = append(d.sinks, sink)
+	d.handlers = append(d.handlers, handler)
 }
 
-func (d *Dispatcher) Dispatch(event DispatchableEvent) {
-	dispatcherEvent := event.ToDispatcherEvent()
-
+func (d *Dispatcher) Dispatch(ctx context.Context, event Event) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	for _, sink := range d.sinks {
-		sink.Handle(dispatcherEvent)
+	for _, handler := range d.handlers {
+		handler.Handle(ctx, event)
 	}
 }

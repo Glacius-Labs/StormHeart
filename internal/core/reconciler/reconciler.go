@@ -4,35 +4,38 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/runtime"
-	"go.uber.org/zap"
 )
 
 type Reconciler struct {
-	Runtime runtime.Runtime
-	Logger  *zap.Logger
+	Runtime    runtime.Runtime
+	Dispatcher *event.Dispatcher
 }
 
-func NewReconciler(runtime runtime.Runtime, logger *zap.Logger) *Reconciler {
+func NewReconciler(runtime runtime.Runtime, dispatcher *event.Dispatcher) *Reconciler {
 	if runtime == nil {
 		panic("Reconciler requires a non-nil Runtime")
 	}
 
-	if logger == nil {
-		panic("Reconciler requires a non-nil Logger")
+	if dispatcher == nil {
+		panic("Reconciler requires a non-nil Dispatcher")
 	}
 
 	return &Reconciler{
-		Runtime: runtime,
-		Logger:  logger,
+		Runtime:    runtime,
+		Dispatcher: dispatcher,
 	}
 }
 
-func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) error {
+func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) {
 	actual, err := r.Runtime.List(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list running containers: %w", err)
+		err = fmt.Errorf("failed to list running containers: %w", err)
+		e := NewReconciliationPerformedEvent(nil, desired, err)
+		r.Dispatcher.Dispatch(ctx, e)
+		return
 	}
 
 	desiredMap := make(map[string]model.Deployment, len(desired))
@@ -45,64 +48,66 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) erro
 		actualMap[a.Name] = a
 	}
 
+	toStart, toStop := r.diff(desiredMap, actualMap)
+
+	err = r.performDeployments(ctx, toStart, toStop)
+
+	e := NewReconciliationPerformedEvent(actual, desired, err)
+	r.Dispatcher.Dispatch(ctx, e)
+}
+
+func (r Reconciler) diff(desired, actual map[string]model.Deployment) ([]model.Deployment, []model.Deployment) {
 	var toStart, toStop []model.Deployment
 
 	// Determine what to start or restart
-	for name, desiredDeployment := range desiredMap {
-		actualDeployment, exists := actualMap[name]
-		if !exists || !desiredDeployment.Equals(actualDeployment) {
+	for name, desiredDeployment := range desired {
+		actualDeployment, exists := actual[name]
+		if !exists {
+			toStart = append(toStart, desiredDeployment)
+		} else if !desiredDeployment.Equals(actualDeployment) {
+			// Deployment exists but changed => must stop old and start new
+			toStop = append(toStop, actualDeployment)
 			toStart = append(toStart, desiredDeployment)
 		}
 	}
 
-	// Determine what to stop
-	for name, actualDeployment := range actualMap {
-		if _, exists := desiredMap[name]; !exists {
+	// Determine what to stop (deployments no longer desired)
+	for name, actualDeployment := range actual {
+		if _, exists := desired[name]; !exists {
 			toStop = append(toStop, actualDeployment)
 		}
 	}
 
-	var startErrs, stopErrs int
+	return toStart, toStop
+}
+
+func (r Reconciler) performDeployments(ctx context.Context, toStart, toStop []model.Deployment) error {
+	hadDeploymentErrors := false
 
 	for _, d := range toStop {
-		if err := r.Runtime.Remove(ctx, d.Name); err != nil {
-			stopErrs++
-			r.Logger.Error(
-				"Failed to stop container",
-				zap.String("deployment", d.Name),
-				zap.Error(err))
-		} else {
-			r.Logger.Info(
-				"Stopped container",
-				zap.String("deployment", d.Name),
-			)
+		err := r.Runtime.Remove(ctx, d.Name)
+
+		if err != nil {
+			hadDeploymentErrors = true
 		}
+
+		e := NewDeploymentRemovedEvent(d, err)
+		r.Dispatcher.Dispatch(ctx, e)
 	}
 
 	for _, d := range toStart {
-		if err := r.Runtime.Deploy(ctx, d); err != nil {
-			startErrs++
-			r.Logger.Error(
-				"Failed to start container",
-				zap.String("deployment", d.Name),
-				zap.Error(err),
-			)
-		} else {
-			r.Logger.Info(
-				"Started container",
-				zap.String("deployment", d.Name),
-			)
+		err := r.Runtime.Deploy(ctx, d)
+
+		if err != nil {
+			hadDeploymentErrors = true
 		}
+
+		e := NewDeploymentCreatedEvent(d, err)
+		r.Dispatcher.Dispatch(ctx, e)
 	}
 
-	r.Logger.Info("Reconciliation complete",
-		zap.Int("started", len(toStart)),
-		zap.Int("stopped", len(toStop)),
-		zap.Int("errors", startErrs+stopErrs),
-	)
-
-	if startErrs+stopErrs > 0 {
-		return fmt.Errorf("reconciliation failed: %d start errors, %d stop errors", startErrs, stopErrs)
+	if hadDeploymentErrors {
+		return fmt.Errorf("one or more deployment actions failed during reconciliation")
 	}
 
 	return nil
