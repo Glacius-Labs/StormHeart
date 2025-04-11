@@ -5,68 +5,77 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/mock"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/static"
-	"github.com/stretchr/testify/assert"
-
-	"go.uber.org/zap/zaptest"
+	"github.com/stretchr/testify/require"
 )
 
-func TestStaticWatcher_Start_PushesDeployments(t *testing.T) {
-	expected := []model.Deployment{
-		{Name: "test", Image: "alpine:latest"},
-	}
+func TestNewWatcher_NotPanicsOnNilDeployments(t *testing.T) {
+	dispatcher := event.NewDispatcher()
 
-	var called bool
-	var gotSource string
-	var gotDeployments []model.Deployment
+	require.NotPanics(t, func() {
+		_ = static.NewWatcher(nil, dispatcher)
+	}, "expected no panic when deployments is nil")
+}
 
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		called = true
-		gotSource = source
-		gotDeployments = deployments
-	}
+func TestNewWatcher_PanicsOnNilDispatcher(t *testing.T) {
+	require.Panics(t, func() {
+		_ = static.NewWatcher(nil, nil)
+	}, "expected panic when dispatcher is nil")
+}
 
-	logger := zaptest.NewLogger(t)
-	w := static.NewWatcher(expected, push, logger)
-
+func TestStaticWatcher_Watch_EmitsEvents(t *testing.T) {
+	// Prepare context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	done := make(chan struct{})
+	// Prepare dispatcher + mock handler
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	// Prepare deployments
+	deployments := []model.Deployment{
+		{Name: "test-service", Image: "nginx"},
+	}
+
+	// Create watcher
+	watcher := static.NewWatcher(deployments, dispatcher)
+
+	// Start watcher in background
 	go func() {
-		err := w.Watch(ctx)
-		assert.NoError(t, err)
-		close(done)
+		err := watcher.Watch(ctx)
+		require.NoError(t, err, "watcher should not return error")
 	}()
 
-	// Wait a little to ensure handlerFunc is called
-	// (Normally this is instant, but tiny wait is safe)
-	<-time.After(50 * time.Millisecond)
+	// Allow some time for events to be emitted
+	time.Sleep(50 * time.Millisecond)
 
-	assert.True(t, called, "handlerFunc should have been called")
-	assert.Equal(t, static.SourceNameStaticWatcher, gotSource)
-	assert.Equal(t, expected, gotDeployments)
-
+	// Trigger shutdown
 	cancel()
 
-	<-done
-}
+	// Allow time for shutdown event
+	time.Sleep(50 * time.Millisecond)
 
-func TestStaticWatcher_NewWatcher_CreatesEmptyCollectionOnNilDeployments(t *testing.T) {
-	assert.NotPanics(t, func() {
-		static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, zaptest.NewLogger(t))
-	})
-}
+	events := handler.Events()
 
-func TestStaticWatcher_NewWatcher_PanicsOnNilHandlerFunc(t *testing.T) {
-	assert.Panics(t, func() {
-		static.NewWatcher(nil, nil, zaptest.NewLogger(t))
-	})
-}
+	require.GreaterOrEqual(t, len(events), 3, "expected at least 3 events: started, received, stopped")
 
-func TestStaticWatcher_NewWatcher_PanicsOnNilLogger(t *testing.T) {
-	assert.Panics(t, func() {
-		static.NewWatcher(nil, func(context.Context, string, []model.Deployment) {}, nil)
-	})
+	var started, received, stopped bool
+	for _, e := range events {
+		switch e.Type() {
+		case "watcher_started":
+			started = true
+		case "deployments_received":
+			received = true
+		case "watcher_stopped":
+			stopped = true
+		}
+	}
+
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, received, "expected DeploymentsReceivedEvent")
+	require.True(t, stopped, "expected WatcherStoppedEvent")
 }

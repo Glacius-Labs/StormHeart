@@ -3,49 +3,44 @@ package static
 import (
 	"context"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/watcher"
-	"go.uber.org/zap"
 )
 
 const SourceNameStaticWatcher = "static"
 
 type StaticWatcher struct {
 	deployments []model.Deployment
-	handlerFunc watcher.HandlerFunc
-	logger      *zap.Logger
+	dispatcher  *event.Dispatcher
 }
 
-func NewWatcher(deployments []model.Deployment, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *StaticWatcher {
+func NewWatcher(deployments []model.Deployment, dispatcher *event.Dispatcher) *StaticWatcher {
 	if deployments == nil {
 		deployments = []model.Deployment{}
 	}
 
-	if handlerFunc == nil {
-		panic("StaticWatcher requires a non-nil handlerFunc")
-	}
-
-	if logger == nil {
-		panic("StaticWatcher requires a non-nil logger")
+	if dispatcher == nil {
+		panic("StaticWatcher requires a non-nil dispatcher")
 	}
 
 	return &StaticWatcher{
 		deployments: deployments,
-		handlerFunc: handlerFunc,
-		logger:      logger,
+		dispatcher:  dispatcher,
 	}
 }
 
 func (w *StaticWatcher) Watch(ctx context.Context) error {
-	w.logger.Info("Pushing deployments", zap.Int("count", len(w.deployments)))
+	startedEvent := watcher.NewWatcherStartedEvent(SourceNameStaticWatcher)
+	w.dispatcher.Dispatch(ctx, startedEvent)
 
-	w.handlerFunc(ctx, SourceNameStaticWatcher, w.deployments)
+	receivedDeploymentsEvent := watcher.NewDeploymentsReceivedEvent(SourceNameStaticWatcher, w.deployments)
+	w.dispatcher.Dispatch(ctx, receivedDeploymentsEvent)
 
 	<-ctx.Done()
 
-	w.logger.Info("Initiating shutdown")
-	watcher.PushEmptyDeployments(w.handlerFunc, SourceNameStaticWatcher)
-	w.logger.Info("Shutdown complete")
+	stoppedEvent := watcher.NewWatcherStoppedEvent(SourceNameStaticWatcher)
+	w.dispatcher.Dispatch(ctx, stoppedEvent)
 
 	return nil
 }
