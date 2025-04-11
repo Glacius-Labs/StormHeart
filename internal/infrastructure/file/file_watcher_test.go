@@ -3,267 +3,397 @@ package file_test
 import (
 	"context"
 	"os"
-	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/core/model"
+	"github.com/glacius-labs/StormHeart/internal/core/event"
+	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/file"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap/zaptest"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestFileWatcher_InitialLoad(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "deployments.json")
+func TestNewFileWatcher_PanicsOnEmptyPath(t *testing.T) {
+	dispatcher := event.NewDispatcher()
 
-	deployments := `[{"name":"test","image":"alpine","environment":{},"tags":[]}]`
-	err := os.WriteFile(filePath, []byte(deployments), 0644)
-	assert.NoError(t, err)
-
-	var (
-		mu       sync.Mutex
-		called   bool
-		received []model.Deployment
-	)
-
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		mu.Lock()
-		defer mu.Unlock()
-		called = true
-		received = deployments
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(filePath, "test-source", push, logger)
-
-	go func() {
-		_ = w.Watch(ctx)
-	}()
-
-	time.Sleep(300 * time.Millisecond) // wait for debounce + push
-
-	mu.Lock()
-	assert.True(t, called, "handlerFunc should have been called")
-	assert.Len(t, received, 1)
-	assert.Equal(t, "test", received[0].Name)
-	mu.Unlock()
+	require.Panics(t, func() {
+		_ = file.NewWatcher("", "source", dispatcher)
+	}, "expected panic on empty path")
 }
 
-func TestFileWatcher_FileChangeTriggersReload(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "deployments.json")
+func TestNewFileWatcher_PanicsOnEmptySource(t *testing.T) {
+	dispatcher := event.NewDispatcher()
 
-	initial := `[{"name":"one","image":"alpine","environment":{},"tags":[]}]`
-	updated := `[{"name":"two","image":"nginx","environment":{},"tags":[]}]`
+	require.Panics(t, func() {
+		_ = file.NewWatcher("somepath", "", dispatcher)
+	}, "expected panic on empty source name")
+}
 
-	err := os.WriteFile(filePath, []byte(initial), 0644)
-	assert.NoError(t, err)
+func TestNewFileWatcher_PanicsOnNilDispatcher(t *testing.T) {
+	require.Panics(t, func() {
+		_ = file.NewWatcher("somepath", "source", nil)
+	}, "expected panic on nil dispatcher")
+}
 
-	var (
-		mu        sync.Mutex
-		callCount int
-		names     []string
-	)
+func TestFileWatcher_Watch_BadPath_EmitsStoppedWithError(t *testing.T) {
+	ctx := t.Context()
 
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		mu.Lock()
-		defer mu.Unlock()
-		callCount++
-		if len(deployments) > 0 {
-			names = append(names, deployments[0].Name)
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	w := file.NewWatcher("/path/that/does/not/exist.json", "bad-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	require.GreaterOrEqual(t, len(events), 2, "expected at least two events: started, stopped with error")
+
+	var started, stoppedWithError bool
+	for _, e := range events {
+		switch e.Type() {
+		case watcher.EventTypeWatcherStarted:
+			started = true
+		case watcher.EventTypeWatcherStopped:
+			stoppedWithError = true
+			require.NotNil(t, e.Error(), "expected watcher_stopped event to carry an error")
 		}
 	}
 
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, stoppedWithError, "expected WatcherStoppedEvent with error")
+}
+
+func TestFileWatcher_Watch_BadJSON_EmitsError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(filePath, "test-reload", push, logger)
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
 
-	go func() {
-		_ = w.Watch(ctx)
-	}()
+	tmpFile, err := os.CreateTemp("", "badfile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
 
-	time.Sleep(300 * time.Millisecond) // initial load
+	_, err = tmpFile.WriteString(`{invalid json}`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
 
-	err = os.WriteFile(filePath, []byte(updated), 0644)
-	assert.NoError(t, err)
+	w := file.NewWatcher(tmpFile.Name(), "bad-json-watcher", dispatcher)
 
-	time.Sleep(400 * time.Millisecond) // debounce + reload
+	go w.Watch(ctx)
 
-	mu.Lock()
-	assert.GreaterOrEqual(t, callCount, 2, "handlerFunc should have been called at least twice")
-	assert.Contains(t, names, "one")
-	assert.Contains(t, names, "two")
-	mu.Unlock()
-}
+	time.Sleep(100 * time.Millisecond)
 
-func TestFileWatcher_HandlesInvalidJSONGracefully(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "deployments.json")
-
-	initial := `[{"name":"valid","image":"alpine","environment":{},"tags":[]}]`
-	invalid := `{{broken`
-
-	err := os.WriteFile(filePath, []byte(initial), 0644)
-	assert.NoError(t, err)
-
-	var (
-		mu        sync.Mutex
-		callCount int
-	)
-
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		mu.Lock()
-		defer mu.Unlock()
-		callCount++
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(filePath, "test-bad-json", push, logger)
-
-	go func() {
-		_ = w.Watch(ctx)
-	}()
-
-	time.Sleep(300 * time.Millisecond) // wait for initial push
-	err = os.WriteFile(filePath, []byte(invalid), 0644)
-	assert.NoError(t, err)
-
-	time.Sleep(400 * time.Millisecond) // wait for debounce + failed reload
-
-	mu.Lock()
-	assert.Equal(t, 1, callCount, "handlerFunc should not be called again after invalid JSON")
-	mu.Unlock()
-}
-
-func TestFileWatcher_PanicsOnNilLogger(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on nil logger, but got none")
-		}
-	}()
-
-	_ = file.NewWatcher("somefile.json", "source", func(context.Context, string, []model.Deployment) {}, nil)
-}
-
-func TestFileWatcher_InvalidFilePath(t *testing.T) {
-	tempDir := t.TempDir() // a directory, not a file
-	logger := zaptest.NewLogger(t)
-
-	var called bool
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		called = true
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	w := file.NewWatcher(tempDir, "invalid-path", push, logger)
-
-	go func() {
-		_ = w.Watch(ctx) // let it run and fail internally
-	}()
-
-	time.Sleep(300 * time.Millisecond)
-
-	assert.False(t, called, "handlerFunc should not have been called for invalid path")
-}
-
-func TestFileWatcher_NonExistentFile(t *testing.T) {
-	tempDir := t.TempDir()
-	missingPath := filepath.Join(tempDir, "not-there.json")
-
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(missingPath, "missing", func(context.Context, string, []model.Deployment) {}, logger)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err := w.Watch(ctx)
-	assert.Error(t, err)
-}
-
-func TestFileWatcher_handlerFuncFailsButContinues(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "deployments.json")
-
-	data := `[{"name":"bad","image":"alpine","environment":{},"tags":[]}]`
-	err := os.WriteFile(filePath, []byte(data), 0644)
-	assert.NoError(t, err)
-
-	// broken handlerFunc: panics internally
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		panic("simulated push failure")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(filePath, "fail-push", push, logger)
-
-	// Watcher should not panic, but the handlerFunc will
-	// So we use recover internally in a safe goroutine
-	go func() {
-		defer func() {
-			_ = recover() // suppress panic from handlerFunc
-		}()
-		_ = w.Watch(ctx)
-	}()
-
-	time.Sleep(300 * time.Millisecond)
-}
-
-func TestFileWatcher_DebounceCancelsOnShutdown(t *testing.T) {
-	tempDir := t.TempDir()
-	filePath := filepath.Join(tempDir, "deployments.json")
-
-	// Create a valid deployment file
-	data := `[{"name":"test","image":"alpine","environment":{},"tags":[]}]`
-	assert.NoError(t, os.WriteFile(filePath, []byte(data), 0644))
-
-	var mu sync.Mutex
-	var pushCount int
-
-	push := func(ctx context.Context, source string, deployments []model.Deployment) {
-		mu.Lock()
-		defer mu.Unlock()
-		pushCount++
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := zaptest.NewLogger(t)
-	w := file.NewWatcher(filePath, "test-debounce-shutdown", push, logger)
-
-	go func() {
-		_ = w.Watch(ctx)
-	}()
-
-	time.Sleep(200 * time.Millisecond) // Wait for initial load
-
-	// Trigger a fake file change (but don't actually write)
-	// This will schedule a debounce
-	_ = os.Chtimes(filePath, time.Now(), time.Now())
-
-	// Cancel context immediately while debounce is waiting
 	cancel()
 
-	time.Sleep(400 * time.Millisecond) // Wait for debounce to settle
+	time.Sleep(100 * time.Millisecond)
 
-	mu.Lock()
-	defer mu.Unlock()
+	events := handler.Events()
 
-	// Only the initial push should have happened
-	assert.Equal(t, 1, pushCount, "should not push again after shutdown")
+	var started, deploymentsReceived, stopped bool
+	for _, e := range events {
+		switch e.Type() {
+		case watcher.EventTypeWatcherStarted:
+			started = true
+		case watcher.EventTypeDeploymentsReceived:
+			deploymentsReceived = true
+			require.NotNil(t, e.Error(), "expected deployments_received event to carry unmarshal error")
+		case watcher.EventTypeWatcherStopped:
+			stopped = true
+		}
+	}
+
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, deploymentsReceived, "expected DeploymentsReceivedEvent even if unmarshal failed")
+	require.True(t, stopped, "expected WatcherStoppedEvent")
+}
+
+func TestFileWatcher_Watch_FileRemovedDuringWatching(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "watchedfile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "dummy", "image": "alpine"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "runtime-fail-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	err = os.Remove(tmpFile.Name())
+	require.NoError(t, err, "expected temp file to be removed successfully")
+
+	time.Sleep(100 * time.Millisecond)
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var started, stoppedWithError bool
+	for _, e := range events {
+		switch e.Type() {
+		case watcher.EventTypeWatcherStarted:
+			started = true
+		case watcher.EventTypeWatcherStopped:
+			stoppedWithError = true
+			require.NotNil(t, e.Error(), "expected error on watcher_stopped after file removal")
+		}
+	}
+
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, stoppedWithError, "expected WatcherStoppedEvent with error after file disappeared")
+}
+
+func TestFileWatcher_Watch_FileRenamedDuringWatching(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "renamefile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "dummy", "image": "alpine"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "rename-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	newPath := tmpFile.Name() + "-renamed"
+	err = os.Rename(tmpFile.Name(), newPath)
+	require.NoError(t, err, "expected file to be renamed successfully")
+	defer os.Remove(newPath)
+
+	time.Sleep(250 * time.Millisecond)
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var started, stoppedWithError bool
+	for _, e := range events {
+		switch e.Type() {
+		case watcher.EventTypeWatcherStarted:
+			started = true
+		case watcher.EventTypeWatcherStopped:
+			stoppedWithError = true
+			require.NotNil(t, e.Error(), "expected watcher_stopped event with error after rename")
+		}
+	}
+
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, stoppedWithError, "expected WatcherStoppedEvent with error after file rename")
+}
+
+func TestFileWatcher_Watch_ShutsDownCleanlyOnContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "shutdownfile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "dummy", "image": "alpine"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "shutdown-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var stopped bool
+	for _, e := range events {
+		if e.Type() == watcher.EventTypeWatcherStopped {
+			stopped = true
+			require.Nil(t, e.Error(), "expected clean shutdown with no error")
+		}
+	}
+
+	require.True(t, stopped, "expected WatcherStoppedEvent on shutdown")
+}
+
+func TestFileWatcher_Watch_InitialLoadEmitsDeployments(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "initialload-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "initial", "image": "alpine:latest"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "initial-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var started, deploymentsReceived, stopped bool
+	for _, e := range events {
+		switch e.Type() {
+		case watcher.EventTypeWatcherStarted:
+			started = true
+		case watcher.EventTypeDeploymentsReceived:
+			deploymentsReceived = true
+
+			receivedEvent, ok := e.(watcher.DeploymentsReceivedEvent)
+			require.True(t, ok, "expected event to be DeploymentsReceivedEvent type")
+			require.Nil(t, receivedEvent.Error(), "expected DeploymentsReceivedEvent to have no error on initial load")
+			require.Len(t, receivedEvent.Deployments, 1, "expected exactly one deployment on initial load")
+			require.Equal(t, "initial", receivedEvent.Deployments[0].Name, "expected deployment name to match")
+		case watcher.EventTypeWatcherStopped:
+			stopped = true
+		}
+	}
+
+	require.True(t, started, "expected WatcherStartedEvent")
+	require.True(t, deploymentsReceived, "expected DeploymentsReceivedEvent from initial file load")
+	require.True(t, stopped, "expected WatcherStoppedEvent on clean shutdown")
+}
+
+func TestFileWatcher_Watch_HandlesFileChangeAndEmitsDeployments(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "changefile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "dummy", "image": "alpine"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "change-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(500 * time.Millisecond)
+
+	err = os.WriteFile(tmpFile.Name(), []byte(`[{"name": "updated", "image": "alpine:latest"}]`), 0644)
+	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var received int
+	for _, e := range events {
+		if e.Type() == watcher.EventTypeDeploymentsReceived {
+			received++
+
+			receivedEvent, ok := e.(watcher.DeploymentsReceivedEvent)
+			require.True(t, ok, "expected event to be DeploymentsReceivedEvent type")
+
+			require.Nil(t, receivedEvent.Error(), "expected DeploymentsReceivedEvent to have no error")
+
+			require.NotNil(t, receivedEvent.Deployments, "expected Deployments not to be nil")
+			require.NotEmpty(t, receivedEvent.Deployments, "expected at least one deployment received")
+		}
+	}
+
+	require.Equal(t, 2, received, "expected two deployments_received events (initial + file change)")
+}
+
+func TestFileWatcher_Watch_DebouncesRapidFileChanges(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := event.NewDispatcher()
+	handler := mock.NewMockHandler()
+	dispatcher.Register(handler)
+
+	tmpFile, err := os.CreateTemp("", "debouncefile-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(`[{"name": "first", "image": "alpine"}]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	w := file.NewWatcher(tmpFile.Name(), "debounce-watcher", dispatcher)
+
+	go w.Watch(ctx)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Rapidly write multiple times
+	for range 5 {
+		err = os.WriteFile(tmpFile.Name(), []byte(`[{"name": "debounced", "image": "alpine:latest"}]`), 0644)
+		require.NoError(t, err)
+		time.Sleep(50 * time.Millisecond) // Faster than debounceDelay
+	}
+
+	time.Sleep(500 * time.Millisecond) // Wait enough for debounce to fire once
+
+	cancel()
+	time.Sleep(100 * time.Millisecond)
+
+	events := handler.Events()
+
+	var deploymentsReceived int
+	for _, e := range events {
+		if e.Type() == watcher.EventTypeDeploymentsReceived {
+			deploymentsReceived++
+		}
+	}
+
+	require.LessOrEqual(t, deploymentsReceived, 3, "expected only 1-3 deployments_received events due to debounce")
 }

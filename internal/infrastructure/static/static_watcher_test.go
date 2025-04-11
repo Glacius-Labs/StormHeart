@@ -27,36 +27,27 @@ func TestNewWatcher_PanicsOnNilDispatcher(t *testing.T) {
 }
 
 func TestStaticWatcher_Watch_EmitsEvents(t *testing.T) {
-	// Prepare context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Prepare dispatcher + mock handler
 	dispatcher := event.NewDispatcher()
 	handler := mock.NewMockHandler()
 	dispatcher.Register(handler)
 
-	// Prepare deployments
 	deployments := []model.Deployment{
 		{Name: "test-service", Image: "nginx"},
 	}
 
-	// Create watcher
 	watcher := static.NewWatcher(deployments, dispatcher)
 
-	// Start watcher in background
 	go func() {
-		err := watcher.Watch(ctx)
-		require.NoError(t, err, "watcher should not return error")
+		watcher.Watch(ctx)
 	}()
 
-	// Allow some time for events to be emitted
 	time.Sleep(50 * time.Millisecond)
 
-	// Trigger shutdown
 	cancel()
 
-	// Allow time for shutdown event
 	time.Sleep(50 * time.Millisecond)
 
 	events := handler.Events()

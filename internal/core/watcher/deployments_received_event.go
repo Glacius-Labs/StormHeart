@@ -15,15 +15,17 @@ const EventTypeDeploymentsReceived event.Type = "deployments_received"
 type DeploymentsReceivedEvent struct {
 	Source      string
 	Deployments []model.Deployment
+	err         error
 	timestamp   time.Time
 }
 
-func NewDeploymentsReceivedEvent(source string, deployments []model.Deployment) DeploymentsReceivedEvent {
+func NewDeploymentsReceivedEvent(source string, deployments []model.Deployment, err error) DeploymentsReceivedEvent {
 	copied := slices.Clone(deployments)
 
 	return DeploymentsReceivedEvent{
 		Source:      source,
 		Deployments: copied,
+		err:         err,
 		timestamp:   time.Now(),
 	}
 }
@@ -37,7 +39,7 @@ func (e DeploymentsReceivedEvent) Type() event.Type {
 }
 
 func (e DeploymentsReceivedEvent) Error() error {
-	return nil
+	return e.err
 }
 
 func (e DeploymentsReceivedEvent) Timestamp() time.Time {

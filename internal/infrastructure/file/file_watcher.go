@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/watcher"
 
 	"github.com/fsnotify/fsnotify"
-	"go.uber.org/zap"
 )
 
 const debounceDelay = 250 * time.Millisecond
@@ -20,13 +20,12 @@ const debounceDelay = 250 * time.Millisecond
 type FileWatcher struct {
 	path          string
 	sourceName    string
-	handlerFunc   watcher.HandlerFunc
-	logger        *zap.Logger
+	dispatcher    *event.Dispatcher
 	debounceTimer *time.Timer
 	mu            sync.Mutex
 }
 
-func NewWatcher(path, sourceName string, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *FileWatcher {
+func NewWatcher(path, sourceName string, dispatcher *event.Dispatcher) *FileWatcher {
 	if path == "" {
 		panic("FileWatcher requires a non-empty path")
 	}
@@ -35,31 +34,31 @@ func NewWatcher(path, sourceName string, handlerFunc watcher.HandlerFunc, logger
 		panic("FileWatcher requires a non-empty source name")
 	}
 
-	if handlerFunc == nil {
-		panic("FileWatcher requires a non-nil handler func")
-	}
-
-	if logger == nil {
-		panic("FileWatcher requires a non-nil logger")
+	if dispatcher == nil {
+		panic("FileWatcher requires a non-nil dispatcher")
 	}
 
 	return &FileWatcher{
-		path:        path,
-		sourceName:  sourceName,
-		handlerFunc: handlerFunc,
-		logger:      logger,
+		path:       path,
+		sourceName: sourceName,
+		dispatcher: dispatcher,
 	}
 }
 
-func (w *FileWatcher) Watch(ctx context.Context) error {
+func (w *FileWatcher) Watch(ctx context.Context) {
+	startedEvent := watcher.NewWatcherStartedEvent(w.sourceName)
+	w.dispatcher.Dispatch(ctx, startedEvent)
+
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return err
+		w.dispatchWatcherStopped(ctx, err)
+		return
 	}
 	defer fsWatcher.Close()
 
 	if err := fsWatcher.Add(w.path); err != nil {
-		return err
+		w.dispatchWatcherStopped(ctx, err)
+		return
 	}
 
 	w.handleFileChange(ctx)
@@ -68,21 +67,24 @@ func (w *FileWatcher) Watch(ctx context.Context) error {
 		select {
 		case event, ok := <-fsWatcher.Events:
 			if !ok {
-				return nil
+				w.dispatchWatcherStopped(ctx, fmt.Errorf("events channel closed unexpectedly"))
+				return
+			}
+			if event.Has(fsnotify.Remove | fsnotify.Rename) {
+				w.dispatchWatcherStopped(ctx, fmt.Errorf("watched file was removed: %s", event.Name))
+				return
 			}
 			w.handleWatchEvent(ctx, event)
 
 		case err, ok := <-fsWatcher.Errors:
 			if !ok {
-				w.logger.Error("File system error channel closed unexpectedly")
-				return nil
+				w.dispatchWatcherStopped(ctx, fmt.Errorf("error channel closed unexpectedly"))
+				return
 			}
-			w.logger.Error("File system error received", zap.Error(err))
+			w.dispatchWatcherStopped(ctx, err)
 
 		case <-ctx.Done():
-			w.logger.Info("Initiating shutdown")
-			watcher.PushEmptyDeployments(w.handlerFunc, w.sourceName)
-			w.logger.Info("Shutdown complete")
+			w.dispatchWatcherStopped(ctx, nil)
 
 			w.mu.Lock()
 			if w.debounceTimer != nil {
@@ -91,33 +93,28 @@ func (w *FileWatcher) Watch(ctx context.Context) error {
 			}
 			w.mu.Unlock()
 
-			return nil
+			return
 		}
 	}
 }
 
-func (w *FileWatcher) handleFileChange(ctx context.Context) error {
+func (w *FileWatcher) handleFileChange(ctx context.Context) {
 	data, err := os.ReadFile(w.path)
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var deployments []model.Deployment
-	if err := json.Unmarshal(data, &deployments); err != nil {
-		return fmt.Errorf("failed to unmarshal deployments: %w", err)
-	}
-
-	w.handlerFunc(ctx, w.sourceName, deployments)
-
-	return nil
-}
-
-func (w *FileWatcher) handleWatchEvent(ctx context.Context, event fsnotify.Event) {
-	if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+		w.dispatchDeploymentsReceived(ctx, nil, fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
-	w.logger.Info("Detected file change", zap.String("path", event.Name))
+	var deployments []model.Deployment
+	err = json.Unmarshal(data, &deployments)
+
+	w.dispatchDeploymentsReceived(ctx, deployments, err)
+}
+
+func (w *FileWatcher) handleWatchEvent(ctx context.Context, event fsnotify.Event) {
+	if !event.Has(fsnotify.Create | fsnotify.Write) {
+		return
+	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -128,12 +125,18 @@ func (w *FileWatcher) handleWatchEvent(ctx context.Context, event fsnotify.Event
 
 	w.debounceTimer = time.AfterFunc(debounceDelay, func() {
 		if ctx.Err() != nil {
-			w.logger.Info("Debounced file change canceled due to shutdown")
 			return
 		}
-
-		if err := w.handleFileChange(ctx); err != nil {
-			w.logger.Error("Error while handling file change", zap.Error(err))
-		}
+		w.handleFileChange(ctx)
 	})
+}
+
+func (w *FileWatcher) dispatchWatcherStopped(ctx context.Context, err error) {
+	event := watcher.NewWatcherStoppedEvent(w.sourceName, err)
+	w.dispatcher.Dispatch(ctx, event)
+}
+
+func (w *FileWatcher) dispatchDeploymentsReceived(ctx context.Context, deployments []model.Deployment, err error) {
+	event := watcher.NewDeploymentsReceivedEvent(w.sourceName, deployments, err)
+	w.dispatcher.Dispatch(ctx, event)
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"slices"
+
 	"github.com/glacius-labs/StormHeart/internal/core/event"
 )
 
@@ -29,8 +31,7 @@ func (h *MockHandler) Events() []event.Event {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Defensive copy
-	return append([]event.Event(nil), h.events...)
+	return slices.Clone(h.events)
 }
 
 func (h *MockHandler) Reset() {

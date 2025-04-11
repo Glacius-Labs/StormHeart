@@ -30,17 +30,15 @@ func NewWatcher(deployments []model.Deployment, dispatcher *event.Dispatcher) *S
 	}
 }
 
-func (w *StaticWatcher) Watch(ctx context.Context) error {
+func (w *StaticWatcher) Watch(ctx context.Context) {
 	startedEvent := watcher.NewWatcherStartedEvent(SourceNameStaticWatcher)
 	w.dispatcher.Dispatch(ctx, startedEvent)
 
-	receivedDeploymentsEvent := watcher.NewDeploymentsReceivedEvent(SourceNameStaticWatcher, w.deployments)
+	receivedDeploymentsEvent := watcher.NewDeploymentsReceivedEvent(SourceNameStaticWatcher, w.deployments, nil)
 	w.dispatcher.Dispatch(ctx, receivedDeploymentsEvent)
 
 	<-ctx.Done()
 
-	stoppedEvent := watcher.NewWatcherStoppedEvent(SourceNameStaticWatcher)
+	stoppedEvent := watcher.NewWatcherStoppedEvent(SourceNameStaticWatcher, nil)
 	w.dispatcher.Dispatch(ctx, stoppedEvent)
-
-	return nil
 }
