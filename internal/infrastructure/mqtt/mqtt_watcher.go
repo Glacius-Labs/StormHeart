@@ -4,20 +4,19 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/glacius-labs/StormHeart/internal/core/watcher"
-	"go.uber.org/zap"
 )
 
 type MQTTWatcher struct {
-	client      Client
-	topic       string
-	sourceName  string
-	handlerFunc watcher.HandlerFunc
-	logger      *zap.Logger
+	client     Client
+	topic      string
+	sourceName string
+	dispatcher *event.Dispatcher
 }
 
-func NewWatcher(client Client, topic, sourceName string, handlerFunc watcher.HandlerFunc, logger *zap.Logger) *MQTTWatcher {
+func NewWatcher(client Client, topic, sourceName string, dispatcher *event.Dispatcher) *MQTTWatcher {
 	if client == nil {
 		panic("MQTTWatcher requires a non-nil client")
 	}
@@ -30,56 +29,44 @@ func NewWatcher(client Client, topic, sourceName string, handlerFunc watcher.Han
 		panic("MQTTWatcher requires a non-empty source name")
 	}
 
-	if handlerFunc == nil {
-		panic("MQTTWatcher requires a non-nil handler func")
-	}
-
-	if logger == nil {
-		panic("MQTTWatcher requires a non-nil logger")
+	if dispatcher == nil {
+		panic("MQTTWatcher requires a non-nil dispatcher")
 	}
 
 	return &MQTTWatcher{
-		client:      client,
-		topic:       topic,
-		sourceName:  sourceName,
-		handlerFunc: handlerFunc,
-		logger:      logger,
+		client:     client,
+		topic:      topic,
+		sourceName: sourceName,
+		dispatcher: dispatcher,
 	}
 }
 
-func (w *MQTTWatcher) Watch(ctx context.Context) error {
+func (w *MQTTWatcher) Watch(ctx context.Context) {
+	startedEvent := watcher.NewWatcherStartedEvent(w.sourceName)
+	w.dispatcher.Dispatch(ctx, startedEvent)
+
 	if err := w.client.Connect(); err != nil {
-		return err
-	}
-
-	w.logger.Info("Connected to MQTT broker")
-
-	if err := w.client.Subscribe(ctx, w.topic, w.handleMessage); err != nil {
-		return err
-	}
-
-	w.logger.Info("Subscribed to MQTT topic", zap.String("topic", w.topic))
-
-	<-ctx.Done()
-
-	w.logger.Info("Initiating shutdown")
-
-	w.client.Disconnect()
-	watcher.PushEmptyDeployments(w.handlerFunc, w.sourceName)
-
-	w.logger.Info("Shutdown complete")
-
-	return nil
-}
-
-func (w *MQTTWatcher) handleMessage(ctx context.Context, payload []byte) {
-	w.logger.Info("MQTT message received", zap.String("topic", w.topic))
-
-	var deployments []model.Deployment
-	if err := json.Unmarshal(payload, &deployments); err != nil {
-		w.logger.Error("Invalid deployment message", zap.Error(err))
+		e := watcher.NewWatcherStoppedEvent(w.sourceName, err)
+		w.dispatcher.Dispatch(ctx, e)
 		return
 	}
 
-	w.handlerFunc(ctx, w.sourceName, deployments)
+	if err := w.client.Subscribe(ctx, w.topic, w.handleMessage); err != nil {
+		e := watcher.NewWatcherStoppedEvent(w.sourceName, err)
+		w.dispatcher.Dispatch(ctx, e)
+		return
+	}
+
+	<-ctx.Done()
+
+	stoppedEvent := watcher.NewWatcherStoppedEvent(w.sourceName, nil)
+	w.dispatcher.Dispatch(ctx, stoppedEvent)
+}
+
+func (w *MQTTWatcher) handleMessage(ctx context.Context, payload []byte) {
+	var deployments []model.Deployment
+	err := json.Unmarshal(payload, &deployments)
+
+	e := watcher.NewDeploymentsReceivedEvent(w.sourceName, deployments, err)
+	w.dispatcher.Dispatch(ctx, e)
 }
