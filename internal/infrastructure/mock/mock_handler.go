@@ -20,11 +20,16 @@ func NewMockHandler() *MockHandler {
 	}
 }
 
-func (h *MockHandler) Handle(ctx context.Context, e event.Event) {
+func (h *MockHandler) Name() string {
+	return "MockHandler"
+}
+
+func (h *MockHandler) Handle(ctx context.Context, e event.Event) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	h.events = append(h.events, e)
+	return nil
 }
 
 func (h *MockHandler) Events() []event.Event {

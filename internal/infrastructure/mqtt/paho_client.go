@@ -36,6 +36,15 @@ func (p *PahoClient) Connect() error {
 	return token.Error()
 }
 
+func (p *PahoClient) Publish(ctx context.Context, topic string, payload []byte) error {
+	token := p.client.Publish(topic, 1, false, payload)
+	token.Wait()
+	if token.Error() != nil {
+		return token.Error()
+	}
+	return nil
+}
+
 func (p *PahoClient) Subscribe(ctx context.Context, topic string, handler MessageHandler) error {
 	token := p.client.Subscribe(topic, 1, func(client paho.Client, msg paho.Message) {
 		handler(ctx, msg.Payload())

@@ -8,21 +8,21 @@ import (
 	"github.com/glacius-labs/StormHeart/internal/core/event"
 )
 
-type ZapLoggerHandler struct {
+type LoggingHandler struct {
 	logger *zap.Logger
 }
 
-func NewZapLoggerHandler(logger *zap.Logger) *ZapLoggerHandler {
+func NewLoggingHandler(logger *zap.Logger) *LoggingHandler {
 	if logger == nil {
 		panic("logger cannot be nil")
 	}
 
-	return &ZapLoggerHandler{
+	return &LoggingHandler{
 		logger: logger,
 	}
 }
 
-func (h *ZapLoggerHandler) Handle(ctx context.Context, event event.Event) {
+func (h *LoggingHandler) Handle(ctx context.Context, event event.Event) error {
 	if event.Error() != nil {
 		h.logger.Error("Event received",
 			zap.String("type", string(event.Type())),
@@ -37,4 +37,6 @@ func (h *ZapLoggerHandler) Handle(ctx context.Context, event event.Event) {
 			zap.Time("timestamp", event.Timestamp()),
 		)
 	}
+
+	return nil
 }

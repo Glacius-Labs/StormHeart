@@ -28,10 +28,10 @@ func NewDeploymentsReceivedHandler(registry *shared.DeploymentsRegistry, reconci
 	}
 }
 
-func (h *DeploymentsReceivedHandler) Handle(ctx context.Context, event event.Event) {
+func (h *DeploymentsReceivedHandler) Handle(ctx context.Context, event event.Event) error {
 	deploymentsReceivedEvent, ok := event.(watcher.DeploymentsReceivedEvent)
 	if !ok {
-		return
+		return nil
 	}
 
 	source := deploymentsReceivedEvent.Source
@@ -42,4 +42,6 @@ func (h *DeploymentsReceivedHandler) Handle(ctx context.Context, event event.Eve
 	allDeployments := h.registry.GetAll()
 
 	h.reconciler.Apply(ctx, allDeployments)
+
+	return nil
 }

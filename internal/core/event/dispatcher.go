@@ -31,7 +31,14 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event Event) {
 
 	for _, handler := range handlers {
 		go func(h Handler) {
-			h.Handle(ctx, event)
+			err := h.Handle(ctx, event)
+
+			if _, isHandlerEvent := event.(*HandlerEvent); isHandlerEvent {
+				return
+			}
+
+			handlerEvent := NewHandlerEvent(h.Name(), event, err)
+			d.Dispatch(ctx, handlerEvent)
 		}(handler)
 	}
 }
