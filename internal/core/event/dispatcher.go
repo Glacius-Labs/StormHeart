@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"slices"
 	"sync"
 )
 
@@ -25,9 +26,12 @@ func (d *Dispatcher) Register(handler Handler) {
 
 func (d *Dispatcher) Dispatch(ctx context.Context, event Event) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
+	handlers := slices.Clone(d.handlers)
+	d.mu.Unlock()
 
-	for _, handler := range d.handlers {
-		handler.Handle(ctx, event)
+	for _, handler := range handlers {
+		go func(h Handler) {
+			h.Handle(ctx, event)
+		}(handler)
 	}
 }

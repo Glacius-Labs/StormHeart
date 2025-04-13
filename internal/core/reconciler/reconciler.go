@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
@@ -12,6 +13,7 @@ import (
 type Reconciler struct {
 	Runtime    runtime.Runtime
 	Dispatcher *event.Dispatcher
+	mu         sync.Mutex
 }
 
 func NewReconciler(runtime runtime.Runtime, dispatcher *event.Dispatcher) *Reconciler {
@@ -30,6 +32,9 @@ func NewReconciler(runtime runtime.Runtime, dispatcher *event.Dispatcher) *Recon
 }
 
 func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	actual, err := r.Runtime.List(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to list running containers: %w", err)
@@ -56,7 +61,7 @@ func (r *Reconciler) Apply(ctx context.Context, desired []model.Deployment) {
 	r.Dispatcher.Dispatch(ctx, e)
 }
 
-func (r Reconciler) diff(desired, actual map[string]model.Deployment) ([]model.Deployment, []model.Deployment) {
+func (r *Reconciler) diff(desired, actual map[string]model.Deployment) ([]model.Deployment, []model.Deployment) {
 	var toStart, toStop []model.Deployment
 
 	// Determine what to start or restart
@@ -80,7 +85,7 @@ func (r Reconciler) diff(desired, actual map[string]model.Deployment) ([]model.D
 	return toStart, toStop
 }
 
-func (r Reconciler) performDeployments(ctx context.Context, toStart, toStop []model.Deployment) error {
+func (r *Reconciler) performDeployments(ctx context.Context, toStart, toStop []model.Deployment) error {
 	hadDeploymentErrors := false
 
 	for _, d := range toStop {
