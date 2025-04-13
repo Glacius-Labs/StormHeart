@@ -18,19 +18,19 @@ type MQTTWatcher struct {
 
 func NewWatcher(client Client, topic, sourceName string, dispatcher *event.Dispatcher) *MQTTWatcher {
 	if client == nil {
-		panic("MQTTWatcher requires a non-nil client")
+		panic("client cannot be nil")
 	}
 
 	if topic == "" {
-		panic("MQTTWatcher requires a non-empty topic")
+		panic("topic cannot be empty")
 	}
 
 	if sourceName == "" {
-		panic("MQTTWatcher requires a non-empty source name")
+		panic("source name cannot be empty")
 	}
 
 	if dispatcher == nil {
-		panic("MQTTWatcher requires a non-nil dispatcher")
+		panic("dispatcher cannot be nil")
 	}
 
 	return &MQTTWatcher{

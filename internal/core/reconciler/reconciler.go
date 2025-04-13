@@ -16,11 +16,11 @@ type Reconciler struct {
 
 func NewReconciler(runtime runtime.Runtime, dispatcher *event.Dispatcher) *Reconciler {
 	if runtime == nil {
-		panic("Reconciler requires a non-nil Runtime")
+		panic("runtime cannot be nil")
 	}
 
 	if dispatcher == nil {
-		panic("Reconciler requires a non-nil Dispatcher")
+		panic("dispatcher cannot be nil")
 	}
 
 	return &Reconciler{
@@ -65,13 +65,12 @@ func (r Reconciler) diff(desired, actual map[string]model.Deployment) ([]model.D
 		if !exists {
 			toStart = append(toStart, desiredDeployment)
 		} else if !desiredDeployment.Equals(actualDeployment) {
-			// Deployment exists but changed => must stop old and start new
 			toStop = append(toStop, actualDeployment)
 			toStart = append(toStart, desiredDeployment)
 		}
 	}
 
-	// Determine what to stop (deployments no longer desired)
+	// Determine what to stop
 	for name, actualDeployment := range actual {
 		if _, exists := desired[name]; !exists {
 			toStop = append(toStop, actualDeployment)
@@ -107,7 +106,7 @@ func (r Reconciler) performDeployments(ctx context.Context, toStart, toStop []mo
 	}
 
 	if hadDeploymentErrors {
-		return fmt.Errorf("one or more deployment actions failed during reconciliation")
+		return fmt.Errorf("one or more deployment actions failed")
 	}
 
 	return nil

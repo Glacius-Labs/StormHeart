@@ -21,7 +21,7 @@ func NewWatcher(deployments []model.Deployment, dispatcher *event.Dispatcher) *S
 	}
 
 	if dispatcher == nil {
-		panic("StaticWatcher requires a non-nil dispatcher")
+		panic("dispatcher cannot be nil")
 	}
 
 	return &StaticWatcher{

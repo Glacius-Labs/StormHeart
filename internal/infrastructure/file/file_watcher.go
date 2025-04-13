@@ -27,15 +27,15 @@ type FileWatcher struct {
 
 func NewWatcher(path, sourceName string, dispatcher *event.Dispatcher) *FileWatcher {
 	if path == "" {
-		panic("FileWatcher requires a non-empty path")
+		panic("path cannot be empty")
 	}
 
 	if sourceName == "" {
-		panic("FileWatcher requires a non-empty source name")
+		panic("source name cannot be empty")
 	}
 
 	if dispatcher == nil {
-		panic("FileWatcher requires a non-nil dispatcher")
+		panic("dispatcher cannot be nil")
 	}
 
 	return &FileWatcher{

@@ -20,11 +20,11 @@ func NewPipeline(
 	logger *zap.Logger,
 ) *Pipeline {
 	if targetFunc == nil {
-		panic("Pipeline requires a non-nil Target")
+		panic("target cannot be nil")
 	}
 
 	if logger == nil {
-		panic("Pipeline requires a non-nil logger")
+		panic("logger cannot be nil")
 	}
 
 	return &Pipeline{

@@ -12,11 +12,11 @@ type PahoClient struct {
 
 func NewPahoClient(id, brokerURL string) *PahoClient {
 	if id == "" {
-		panic("PahoClient requires a non-empty id")
+		panic("id cannot be empty")
 	}
 
 	if brokerURL == "" {
-		panic("PahoClient requires a non-empty broker url")
+		panic("broker URL cannot be empty")
 	}
 
 	opts := paho.NewClientOptions().

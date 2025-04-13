@@ -61,6 +61,7 @@ func TestFileWatcher_Watch_BadPath_EmitsStoppedWithError(t *testing.T) {
 			stoppedWithError = true
 			require.NotNil(t, e.Error(), "expected watcher_stopped event to carry an error")
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, started, "expected WatcherStartedEvent")
@@ -106,6 +107,7 @@ func TestFileWatcher_Watch_BadJSON_EmitsError(t *testing.T) {
 		case watcher.EventTypeWatcherStopped:
 			stopped = true
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, started, "expected WatcherStartedEvent")
@@ -155,6 +157,7 @@ func TestFileWatcher_Watch_FileRemovedDuringWatching(t *testing.T) {
 			stoppedWithError = true
 			require.NotNil(t, e.Error(), "expected error on watcher_stopped after file removal")
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, started, "expected WatcherStartedEvent")
@@ -205,6 +208,7 @@ func TestFileWatcher_Watch_FileRenamedDuringWatching(t *testing.T) {
 			stoppedWithError = true
 			require.NotNil(t, e.Error(), "expected watcher_stopped event with error after rename")
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, started, "expected WatcherStartedEvent")
@@ -245,6 +249,7 @@ func TestFileWatcher_Watch_ShutsDownCleanlyOnContextCancel(t *testing.T) {
 			stopped = true
 			require.Nil(t, e.Error(), "expected clean shutdown with no error")
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, stopped, "expected WatcherStoppedEvent on shutdown")
@@ -294,6 +299,7 @@ func TestFileWatcher_Watch_InitialLoadEmitsDeployments(t *testing.T) {
 		case watcher.EventTypeWatcherStopped:
 			stopped = true
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.True(t, started, "expected WatcherStartedEvent")
@@ -347,6 +353,7 @@ func TestFileWatcher_Watch_HandlesFileChangeAndEmitsDeployments(t *testing.T) {
 			require.NotNil(t, receivedEvent.Deployments, "expected Deployments not to be nil")
 			require.NotEmpty(t, receivedEvent.Deployments, "expected at least one deployment received")
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), 5*time.Second, "expected recent timestamp for event")
 	}
 
 	require.Equal(t, 2, received, "expected two deployments_received events (initial + file change)")
@@ -393,6 +400,7 @@ func TestFileWatcher_Watch_DebouncesRapidFileChanges(t *testing.T) {
 		if e.Type() == watcher.EventTypeDeploymentsReceived {
 			deploymentsReceived++
 		}
+		require.WithinDuration(t, time.Now(), e.Timestamp(), time.Second, "expected recent timestamp for event")
 	}
 
 	require.LessOrEqual(t, deploymentsReceived, 3, "expected only 1-3 deployments_received events due to debounce")
