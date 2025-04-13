@@ -18,7 +18,6 @@ func NewDeploymentsReceivedHandler(registry *shared.DeploymentsRegistry, reconci
 	if registry == nil {
 		panic("registry cannot be nil")
 	}
-
 	if reconciler == nil {
 		panic("reconciler cannot be nil")
 	}
