@@ -8,6 +8,5 @@ import (
 
 type Runtime interface {
 	Deploy(ctx context.Context, deployment model.Deployment) error
-	Remove(ctx context.Context, deployment model.Deployment) error
-	RemoveAll(ctx context.Context) error
+	Remove(ctx context.Context, name string) error
 }
