@@ -295,7 +295,7 @@ func TestFileWatcher_Watch_InitialLoadEmitsDeployments(t *testing.T) {
 			require.True(t, ok, "expected event to be DeploymentsReceivedEvent type")
 			require.Nil(t, receivedEvent.Error(), "expected DeploymentsReceivedEvent to have no error on initial load")
 			require.Len(t, receivedEvent.Deployments, 1, "expected exactly one deployment on initial load")
-			require.Equal(t, "initial", receivedEvent.Deployments[0].Name, "expected deployment name to match")
+			require.Equal(t, "initial", receivedEvent.Deployments[0].Source, "expected deployment name to match")
 		case watcher.EventTypeWatcherStopped:
 			stopped = true
 		}

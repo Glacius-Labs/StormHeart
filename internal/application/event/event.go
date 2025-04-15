@@ -4,7 +4,7 @@ import "time"
 
 type Event interface {
 	Message() string
-	Type() Type
+	Type() EventType
 	Error() error
 	Timestamp() time.Time
 }

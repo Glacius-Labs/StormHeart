@@ -191,7 +191,7 @@ func TestMQTTWatcher_ReceivesAndHandlesMessage(t *testing.T) {
 			require.True(t, ok, "expected event to be DeploymentsReceivedEvent type")
 			require.Nil(t, receivedEvent.Error(), "expected DeploymentsReceivedEvent to have no error")
 			require.Len(t, receivedEvent.Deployments, 1, "expected exactly one deployment in received event")
-			require.Equal(t, "dummy", receivedEvent.Deployments[0].Name, "expected deployment name to match")
+			require.Equal(t, "dummy", receivedEvent.Deployments[0].Source, "expected deployment name to match")
 		}
 	}
 

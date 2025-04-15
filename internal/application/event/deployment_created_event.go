@@ -1,13 +1,12 @@
-package reconciler
+package event
 
 import (
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 )
 
-const EventTypeDeploymentCreated event.Type = "deployment_created"
+const EventTypeDeploymentCreated EventType = "deployment_created"
 
 type DeploymentCreatedEvent struct {
 	Deployment model.Deployment
@@ -30,7 +29,7 @@ func (e DeploymentCreatedEvent) Message() string {
 	return "Successfully created deployment " + e.Deployment.Name
 }
 
-func (e DeploymentCreatedEvent) Type() event.Type {
+func (e DeploymentCreatedEvent) Type() EventType {
 	return EventTypeDeploymentCreated
 }
 

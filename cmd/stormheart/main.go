@@ -4,13 +4,15 @@ import (
 	"fmt"
 
 	"github.com/glacius-labs/StormHeart/internal/app"
-	"github.com/glacius-labs/StormHeart/internal/application/pipeline"
+	"github.com/glacius-labs/StormHeart/internal/application/handler"
+	"github.com/glacius-labs/StormHeart/internal/application/shared"
+	"github.com/glacius-labs/StormHeart/internal/core/event"
 	"github.com/glacius-labs/StormHeart/internal/core/reconciler"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/docker"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/file"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/logging"
 	"github.com/glacius-labs/StormHeart/internal/infrastructure/mqtt"
-	"github.com/glacius-labs/StormHeart/internal/infrastructure/static"
-	"go.uber.org/zap"
+	"github.com/glacius-labs/StormHeart/internal/infrastructure/zap"
 )
 
 const configPath = "config.json"
@@ -28,52 +30,45 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Logger initialized")
+	logger.Info("Starting StormHeart")
 
 	ctx := setupSignalContext(logger)
 
 	runtime, err := docker.NewRuntime()
 
 	if err != nil {
-		logger.Fatal("Failed to create runtime", zap.Error(err))
+		logger.Fatal("failed to create runtime", zap.Error(err))
+		return
 	}
+
+	registry := shared.NewDeploymentsRegistry()
+
+	dispatcher := event.NewDispatcher()
 
 	reconciler := reconciler.NewReconciler(
 		runtime,
-		logger.With(zap.String("component", "reconciler")),
-	)
-
-	pl := pipeline.NewPipeline(
-		reconciler.Apply,
-		logger.With(zap.String("component", "pipeline")),
-	)
-
-	pl.Use(pipeline.Deduplicator())
-
-	staticWatcher := static.NewWatcher(
-		staticDeployments,
-		pl.Push,
-		logger.With(zap.String("component", "watcher"), zap.String("source", "static")),
+		dispatcher,
 	)
 
 	mqttTopic := fmt.Sprintf("stormfleet/%s/deployments", cfg.Identifier)
 	mqttUrl := fmt.Sprintf("tcp://%s:%d", cfg.StormLink.Host, cfg.StormLink.Port)
 	mqttClient := mqtt.NewPahoClient(cfg.Identifier, mqttUrl)
 
+	dispatcher.Register(handler.NewDeploymentHandler(registry, reconciler))
+	dispatcher.Register(handler.NewWatcherStoppedHandler(registry, reconciler))
+	dispatcher.Register(logging.NewLoggingHandler(logger))
+	dispatcher.Register(mqtt.NewEventPublisherHandler(mqttClient, fmt.Sprintf("stormfleet/%s/events", cfg.Identifier)))
+
 	mqqtWatcher := mqtt.NewWatcher(
 		mqttClient,
 		mqttTopic,
 		stormLinkSource,
-		pl.Push,
-		logger.With(zap.String("component", "watcher"), zap.String("source", "mqtt")),
+		dispatcher,
 	)
 
 	builder := app.
 		NewBuilder().
-		WithLogger(logger).
 		WithRuntime(runtime).
-		WithReconciler(reconciler).
-		WithPipeline(pl).
 		WithWatcher(staticWatcher).
 		WithWatcher(mqqtWatcher)
 
@@ -81,8 +76,7 @@ func main() {
 		fileWatcher := file.NewWatcher(
 			watcherConfig.Path,
 			watcherConfig.Name,
-			pl.Push,
-			logger.With(zap.String("component", "watcher"), zap.String("source", watcherConfig.Name)),
+			dispatcher,
 		)
 
 		builder.WithWatcher(fileWatcher)
@@ -91,14 +85,16 @@ func main() {
 	app, err := builder.Build()
 
 	if err != nil {
-		logger.Fatal("Failed to build app", zap.Error(err))
+		logger.Fatal("failed to build application", zap.Error(err))
+		return
 	}
 
 	if err := app.Start(ctx); err != nil {
-		logger.Fatal("Application exited with error", zap.Error(err))
+		logger.Fatal("failed to start application", zap.Error(err))
+		return
 	}
 
 	<-ctx.Done()
 
-	logger.Info("Shutdown complete")
+	logger.Info("Shutting down StormHeart")
 }

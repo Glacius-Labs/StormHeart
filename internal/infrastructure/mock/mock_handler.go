@@ -11,28 +11,23 @@ import (
 
 type MockHandler struct {
 	mu     sync.Mutex
-	events []event.Event
+	events []event.EventType
 }
 
 func NewMockHandler() *MockHandler {
 	return &MockHandler{
-		events: make([]event.Event, 0),
+		events: make([]event.EventType, 0),
 	}
 }
 
-func (h *MockHandler) Name() string {
-	return "MockHandler"
-}
-
-func (h *MockHandler) Handle(ctx context.Context, e event.Event) error {
+func (h *MockHandler) Handle(ctx context.Context, e event.EventType) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	h.events = append(h.events, e)
-	return nil
 }
 
-func (h *MockHandler) Events() []event.Event {
+func (h *MockHandler) Events() []event.EventType {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

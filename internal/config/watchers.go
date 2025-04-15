@@ -8,12 +8,12 @@ type Watchers struct {
 
 func (w Watchers) validate() error {
 	if len(w.Files) == 0 {
-		return fmt.Errorf("at least one file watcher must be configured")
+		return nil
 	}
 
-	for i, fw := range w.Files {
+	for _, fw := range w.Files {
 		if err := fw.validate(); err != nil {
-			return fmt.Errorf("file watcher at index %d: %w", i, err)
+			return fmt.Errorf("file watcher %s: %w", fw.Name, err)
 		}
 	}
 
