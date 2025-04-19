@@ -14,8 +14,8 @@ type DeploymentCreatedEvent struct {
 	timestamp  time.Time
 }
 
-func NewDeploymentCreatedEvent(deployment model.Deployment, err error) DeploymentCreatedEvent {
-	return DeploymentCreatedEvent{
+func NewDeploymentCreatedEvent(deployment model.Deployment, err error) *DeploymentCreatedEvent {
+	return &DeploymentCreatedEvent{
 		Deployment: deployment,
 		err:        err,
 		timestamp:  time.Now(),

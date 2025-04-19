@@ -26,7 +26,7 @@ func NewWatermillCommandRouter(
 ) (*WatermillCommandRouter, error) {
 	r, err := message.NewRouter(message.RouterConfig{}, log)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create watermill router: %w", err)
+		return nil, fmt.Errorf("failed to create watermill command router: %w", err)
 	}
 
 	return &WatermillCommandRouter{
@@ -48,29 +48,24 @@ func (r *WatermillCommandRouter) RegisterHandler(h handler.Handler) error {
 
 	r.handlers[cmdType] = h
 
-	r.router.AddHandler(
-		topic+"-handler",
+	r.router.AddNoPublisherHandler(
+		h.Name(),
 		topic,
 		r.sub,
-		"", // no output topic
-		r.pub,
-		func(msg *message.Message) ([]*message.Message, error) {
-			ctx := context.Background()
-
+		func(msg *message.Message) error {
 			cmd, err := r.decodeCommand(cmdType, msg.Payload)
 			if err != nil {
-				r.log.Error("failed to decode command", err, nil)
-				return nil, err
+				return fmt.Errorf("failed to decode command: %w", err)
 			}
 
-			return nilOrError(h.Handle(ctx, cmd))
+			return h.Handle(msg.Context(), cmd)
 		},
 	)
 
 	return nil
 }
 
-func (r *WatermillCommandRouter) Publish(ctx context.Context, cmd command.Command) error {
+func (r *WatermillCommandRouter) Publish(cmd command.Command) error {
 	data, err := json.Marshal(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to marshal command: %w", err)
@@ -89,11 +84,4 @@ func (r *WatermillCommandRouter) Start() error {
 
 func (r *WatermillCommandRouter) Close() error {
 	return r.router.Close()
-}
-
-func nilOrError(err error) ([]*message.Message, error) {
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
 }

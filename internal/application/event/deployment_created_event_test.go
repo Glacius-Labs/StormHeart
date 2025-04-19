@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glacius-labs/StormHeart/internal/core/event"
+	"github.com/glacius-labs/StormHeart/internal/application/event"
 	"github.com/glacius-labs/StormHeart/internal/core/model"
 	"github.com/stretchr/testify/require"
 )

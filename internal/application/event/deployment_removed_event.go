@@ -14,8 +14,8 @@ type DeploymentRemovedEvent struct {
 	timestamp  time.Time
 }
 
-func NewDeploymentRemovedEvent(deployment model.Deployment, err error) DeploymentRemovedEvent {
-	return DeploymentRemovedEvent{
+func NewDeploymentRemovedEvent(deployment model.Deployment, err error) *DeploymentRemovedEvent {
+	return &DeploymentRemovedEvent{
 		Deployment: deployment,
 		err:        err,
 		timestamp:  time.Now(),
